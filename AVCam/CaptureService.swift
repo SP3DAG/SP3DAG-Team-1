@@ -6,8 +6,9 @@ An object that manages a capture session and its inputs and outputs.
 */
 
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import Combine
+import CoreLocation
 
 /// An actor that manages the capture pipeline, which includes the capture session, device inputs, and capture outputs.
 /// The app defines it as an `actor` type to ensure that all camera operations happen off of the `@MainActor`.
@@ -468,8 +469,8 @@ actor CaptureService {
     }
     
     // MARK: - Photo capture
-    func capturePhoto(with features: PhotoFeatures) async throws -> Photo {
-        try await photoCapture.capturePhoto(with: features)
+    func capturePhoto(with features: PhotoFeatures, location: CLLocation? = nil) async throws -> Photo {
+        try await photoCapture.capturePhoto(with: features, location: location)
     }
     
     // MARK: - Movie capture
