@@ -72,6 +72,22 @@ actor MediaLibrary {
         }
     }
     
+    func save(stegoImage: UIImage) async throws {
+            guard let pngData = stegoImage.pngData() else {
+                throw Error.saveFailed
+            }
+
+            let location = try await currentLocation
+            try await performChange {
+                let creationRequest = PHAssetCreationRequest.forAsset()
+                let options = PHAssetResourceCreationOptions()
+                creationRequest.addResource(with: .photo, data: pngData, options: options)
+                creationRequest.location = location
+                return creationRequest.placeholderForCreatedAsset
+            }
+        }
+
+    
     /// Saves a movie to the Photos library.
     func save(movie: Movie) async throws {
         let location = try await currentLocation

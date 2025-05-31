@@ -92,12 +92,14 @@ final class CameraModel: NSObject, Camera {
         do {
             let photoFeatures = PhotoFeatures(isLivePhotoEnabled: isLivePhotoEnabled, qualityPrioritization: qualityPrioritization)
             let photo = try await captureService.capturePhoto(with: photoFeatures, location: currentLocation)
+            
+            // Fallback to original if embedding failed
             try await mediaLibrary.save(photo: photo)
         } catch {
             self.error = error
         }
     }
-
+    
     var isLivePhotoEnabled = true {
         didSet {
             cameraState.isLivePhotoEnabled = isLivePhotoEnabled

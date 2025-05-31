@@ -159,8 +159,12 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
             return
         }
 
-        // 🔐 Embed hidden message before saving
-        var hiddenMessage = "Captured at: \(Date())"
+        // Embed hidden message before saving
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZ"
+        formatter.timeZone = .current  // <- Use device's local time zone
+        let localTimeString = formatter.string(from: Date())
+        var hiddenMessage = "Captured at: \(localTimeString)"
         if let location = location {
             let lat = String(format: "%.5f", location.coordinate.latitude)
             let lon = String(format: "%.5f", location.coordinate.longitude)
@@ -168,7 +172,7 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
         }
 
         let finalData: Data
-        if let stegoImage = embedLSB(message: hiddenMessage, into: image),
+        if let stegoImage = embedQRInBlueLSB(message: hiddenMessage, into: image),
            let stegoData = stegoImage.pngData() {
             finalData = stegoData
         } else {
@@ -180,62 +184,8 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     }
 }
 
-// MARK: - LSB Steganography
-
-private func embedLSB(message: String, into image: UIImage) -> UIImage? {
-    guard let cgImage = image.cgImage else { return nil }
-
-    let width = cgImage.width
-    let height = cgImage.height
-    let bytesPerPixel = 4
-    let bitsPerComponent = 8
-    let bytesPerRow = width * bytesPerPixel
-    var pixelData = [UInt8](repeating: 0, count: height * bytesPerRow)
-
-    guard let context = CGContext(data: &pixelData,
-                                  width: width,
-                                  height: height,
-                                  bitsPerComponent: bitsPerComponent,
-                                  bytesPerRow: bytesPerRow,
-                                  space: CGColorSpaceCreateDeviceRGB(),
-                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-    else { return nil }
-
-    context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-
-    let messageBytes = Array(message.utf8)
-    var bitArray: [UInt8] = []
-    for byte in messageBytes {
-        for i in (0..<8).reversed() {
-            bitArray.append((byte >> i) & 1)
-        }
-    }
-    bitArray += Array(repeating: 0, count: 8) // Delimiter
-
-    var bitIndex = 0
-    for i in stride(from: 0, to: pixelData.count, by: 4) {
-        for j in 0..<3 {
-            if bitIndex < bitArray.count {
-                pixelData[i + j] = (pixelData[i + j] & 0xFE) | bitArray[bitIndex]
-                bitIndex += 1
-            }
-        }
-        if bitIndex >= bitArray.count {
-            break
-        }
-    }
-
-    guard let outputContext = CGContext(data: &pixelData,
-                                        width: width,
-                                        height: height,
-                                        bitsPerComponent: bitsPerComponent,
-                                        bytesPerRow: bytesPerRow,
-                                        space: CGColorSpaceCreateDeviceRGB(),
-                                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
-          let outputImage = outputContext.makeImage()
-    else {
-        return nil
-    }
-
-    return UIImage(cgImage: outputImage)
+private func embedQRInBlueLSB(message: String, into image: UIImage) -> UIImage? {
+    let stego = QRSteganography(blockSize: 8)
+    let qrMatrix = stego.generateQRMatrix(from: message)
+    return stego.embedMultipleQRsInBlueChannel(image: image, qrMatrix: qrMatrix, spacingMultiplier: 2)
 }
