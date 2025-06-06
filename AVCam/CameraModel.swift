@@ -22,6 +22,8 @@ final class CameraModel: NSObject, Camera {
     private(set) var error: Error?
 
     var previewSource: PreviewSource { captureService.previewSource }
+    
+    var showGeoSignedConfirmation: Bool = false
 
     private(set) var isHDRVideoSupported = false
     private let mediaLibrary = MediaLibrary()
@@ -89,17 +91,29 @@ final class CameraModel: NSObject, Camera {
     // MARK: - Photo capture
 
     func capturePhoto() async {
+        print("📸 Starting capturePhoto()")
+
         do {
-            let photoFeatures = PhotoFeatures(isLivePhotoEnabled: isLivePhotoEnabled, qualityPrioritization: qualityPrioritization)
+            let photoFeatures = PhotoFeatures(isLivePhotoEnabled: isLivePhotoEnabled,
+                                              qualityPrioritization: qualityPrioritization)
+            print("⚙️ Created photo features")
+
             let photo = try await captureService.capturePhoto(with: photoFeatures, location: currentLocation)
-            
-            // Fallback to original if embedding failed
+            print("✅ Photo captured")
+
             try await mediaLibrary.save(photo: photo)
+            print("💾 Photo saved to media library")
+
+            DispatchQueue.main.async {
+                self.showGeoSignedConfirmation = true
+                print("🎉 Triggered animation")
+            }
         } catch {
+            print("❌ Error during photo capture: \(error)")
             self.error = error
         }
     }
-    
+
     var isLivePhotoEnabled = true {
         didSet {
             cameraState.isLivePhotoEnabled = isLivePhotoEnabled

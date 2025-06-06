@@ -8,7 +8,6 @@ A Camera implementation to use when working with SwiftUI previews.
 import Foundation
 import SwiftUI
 
-@Observable
 class PreviewCameraModel: Camera {
     
     var isLivePhotoEnabled = true

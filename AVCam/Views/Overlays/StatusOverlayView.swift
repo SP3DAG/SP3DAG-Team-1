@@ -55,15 +55,3 @@ struct StatusOverlayView: View {
 		}
 	}
 }
-
-#Preview("Interrupted") {
-    CameraView(camera: PreviewCameraModel(status: .interrupted))
-}
-
-#Preview("Failed") {
-    CameraView(camera: PreviewCameraModel(status: .failed))
-}
-
-#Preview("Unauthorized") {
-    CameraView(camera: PreviewCameraModel(status: .unauthorized))
-}

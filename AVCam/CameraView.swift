@@ -10,12 +10,12 @@ import AVFoundation
 import AVKit
 
 @MainActor
-struct CameraView<CameraModel: Camera>: PlatformView {
+struct CameraView: PlatformView {
+    @Bindable var camera: CameraModel
     
     @Environment(\.verticalSizeClass) var verticalSizeClass
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
-    
-    @State var camera: CameraModel
+
     
     // The direction a person swipes on the camera preview or mode selector.
     @State var swipeDirection = SwipeDirection.left
@@ -47,16 +47,21 @@ struct CameraView<CameraModel: Camera>: PlatformView {
                     }
                     // Switch between capture modes by swiping left and right.
                     .simultaneousGesture(swipeGesture)
-                    /// The value of `shouldFlashScreen` changes briefly to `true` when capture
-                    /// starts, and then immediately changes to `false`. Use this change to
-                    /// flash the screen to provide visual feedback when capturing photos.
+                    // Flash the screen briefly
                     .opacity(camera.shouldFlashScreen ? 0 : 1)
             }
+
             // The main camera user interface.
             CameraUI(camera: camera, swipeDirection: $swipeDirection)
+
+            // Overlay animation on top of everything
+            if camera.showGeoSignedConfirmation {
+                GlobeWarpMorphView(show: $camera.showGeoSignedConfirmation)
+                    .transition(.opacity)
+                    .zIndex(100)
+            }
         }
     }
-
     var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 50)
             .onEnded {
@@ -65,11 +70,6 @@ struct CameraView<CameraModel: Camera>: PlatformView {
             }
     }
 }
-
-#Preview {
-    CameraView(camera: PreviewCameraModel())
-}
-
 enum SwipeDirection {
     case left
     case right
