@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		22165BFE2DF319D700F5427B /* QRSteganography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22165BFD2DF319D200F5427B /* QRSteganography.swift */; };
+		22165BFF2DF319D700F5427B /* QRSteganography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22165BFD2DF319D200F5427B /* QRSteganography.swift */; };
+		22165C002DF319D700F5427B /* QRSteganography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22165BFD2DF319D200F5427B /* QRSteganography.swift */; };
 		C400F46128DFD8AC00861093 /* ThumbnailButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = C400F45E28DFD8AC00861093 /* ThumbnailButton.swift */; };
 		C400F46328DFDAB700861093 /* FoundationExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C400F46228DFDAB700861093 /* FoundationExtensions.swift */; };
 		C40A95B92CC9A91A00A02AF1 /* CameraState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A73C9F2CC0748800C2FA84 /* CameraState.swift */; };
@@ -118,6 +121,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		22165BFD2DF319D200F5427B /* QRSteganography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRSteganography.swift; sourceTree = "<group>"; };
 		4171C532FBB2053E055D7336 /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		7710E8B4E5AEBAFE7C73EBAA /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		B92404E334D9008D3705950F /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
@@ -265,6 +269,7 @@
 		C470F0EF2899E2FB004D4515 /* Model */ = {
 			isa = PBXGroup;
 			children = (
+				22165BFD2DF319D200F5427B /* QRSteganography.swift */,
 				C4F82CC9285AE13B005D427A /* Camera.swift */,
 				C4DFD84328C3E173005B74F0 /* DataTypes.swift */,
 				C442A31028BEAEA70029B42B /* MediaLibrary.swift */,
@@ -522,6 +527,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C4C5531A2CA1D5A3005D940C /* PreviewContainer.swift in Sources */,
+				22165BFE2DF319D700F5427B /* QRSteganography.swift in Sources */,
 				C4C5531B2CA1D5A3005D940C /* CaptureService.swift in Sources */,
 				C4C5531C2CA1D5A3005D940C /* RecordingTimeView.swift in Sources */,
 				C4C5531D2CA1D5A3005D940C /* LiveBadge.swift in Sources */,
@@ -556,6 +562,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				22165BFF2DF319D700F5427B /* QRSteganography.swift in Sources */,
 				C40A95B92CC9A91A00A02AF1 /* CameraState.swift in Sources */,
 				C4A73C9E2CC015E300C2FA84 /* DataTypes.swift in Sources */,
 				C4C6E2152CA1D01A0081A8EA /* AVCamCaptureIntent.swift in Sources */,
@@ -567,6 +574,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C4A349DF28BD4B700056FAAF /* SwitchCameraButton.swift in Sources */,
+				22165C002DF319D700F5427B /* QRSteganography.swift in Sources */,
 				C44DC7BE289AC3DD0099BB87 /* PreviewContainer.swift in Sources */,
 				C4DCF51428947AFA00805EE2 /* PreviewCameraModel.swift in Sources */,
 				C48091852BD584AD00753C4A /* CameraModel.swift in Sources */,
@@ -640,7 +648,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.denkmoritz.camera;
+				PRODUCT_BUNDLE_IDENTIFIER = com.denkmoritz.camera.capture;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -682,7 +690,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.denkmoritz.camera;
+				PRODUCT_BUNDLE_IDENTIFIER = com.denkmoritz.camera.capture;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -723,7 +731,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.denkmoritz.camera;
+				PRODUCT_BUNDLE_IDENTIFIER = com.denkmoritz.camera.controlcenter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -764,7 +772,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.denkmoritz.camera;
+				PRODUCT_BUNDLE_IDENTIFIER = com.denkmoritz.camera.controlcenter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
