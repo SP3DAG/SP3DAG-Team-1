@@ -30,14 +30,7 @@ struct CameraView: PlatformView {
                     .onCameraCaptureEvent { event in
                         if event.phase == .ended {
                             Task {
-                                switch camera.captureMode {
-                                case .photo:
-                                    // Capture a photo when pressing a hardware button.
-                                    await camera.capturePhoto()
-                                case .video:
-                                    // Toggle video recording when pressing a hardware button.
-                                    await camera.toggleRecording()
-                                }
+                                await camera.capturePhoto()
                             }
                         }
                     }
@@ -52,7 +45,7 @@ struct CameraView: PlatformView {
             }
 
             // The main camera user interface.
-            CameraUI(camera: camera, swipeDirection: $swipeDirection)
+            CameraUI(camera: camera)
 
             // Overlay animation on top of everything
             if camera.showGeoSignedConfirmation {

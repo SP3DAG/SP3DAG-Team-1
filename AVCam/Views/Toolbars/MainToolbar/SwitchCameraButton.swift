@@ -22,7 +22,6 @@ struct SwitchCameraButton<CameraModel: Camera>: View {
         }
         .buttonStyle(DefaultButtonStyle(size: .large))
         .frame(width: largeButtonSize.width, height: largeButtonSize.height)
-        .disabled(camera.captureActivity.isRecording)
         .allowsHitTesting(!camera.isSwitchingVideoDevices)
     }
 }

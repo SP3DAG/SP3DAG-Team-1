@@ -23,7 +23,6 @@ struct ThumbnailButton<CameraModel: Camera>: View {
         }
 		.frame(width: 64.0, height: 64.0)
 		.cornerRadius(8)
-        .disabled(camera.captureActivity.isRecording)
     }
     
     @ViewBuilder

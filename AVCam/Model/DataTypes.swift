@@ -1,25 +1,13 @@
-/*
-See the LICENSE.txt file for this sample’s licensing information.
-
-Abstract:
-Supporting data types for the app.
-*/
-
 import AVFoundation
 
 // MARK: - Supporting types
 
 /// An enumeration that describes the current status of the camera.
 enum CameraStatus {
-    /// The initial status upon creation.
     case unknown
-    /// A status that indicates a person disallows access to the camera or microphone.
     case unauthorized
-    /// A status that indicates the camera failed to start.
     case failed
-    /// A status that indicates the camera is successfully running.
     case running
-    /// A status that indicates higher-priority media processing is interrupting the camera.
     case interrupted
 }
 
@@ -28,55 +16,13 @@ enum CameraStatus {
 /// This type provides feedback to the UI regarding the active status of the `CaptureService` actor.
 enum CaptureActivity {
     case idle
-    /// A status that indicates the capture service is performing photo capture.
-    case photoCapture(willCapture: Bool = false, isLivePhoto: Bool = false)
-    /// A status that indicates the capture service is performing movie capture.
-    case movieCapture(duration: TimeInterval = 0.0)
-    
-    var isLivePhoto: Bool {
-        if case .photoCapture(_, let isLivePhoto) = self {
-            return isLivePhoto
-        }
-        return false
-    }
-    
+    case photoCapture(willCapture: Bool = false)
+
     var willCapture: Bool {
-        if case .photoCapture(let willCapture, _) = self {
+        if case .photoCapture(let willCapture) = self {
             return willCapture
         }
         return false
-    }
-    
-    var currentTime: TimeInterval {
-        if case .movieCapture(let duration) = self {
-            return duration
-        }
-        return .zero
-    }
-    
-    var isRecording: Bool {
-        if case .movieCapture(_) = self {
-            return true
-        }
-        return false
-    }
-}
-
-/// An enumeration of the capture modes that the camera supports.
-enum CaptureMode: String, Identifiable, CaseIterable, Codable {
-    var id: Self { self }
-    /// A mode that enables photo capture.
-    case photo
-    /// A mode that enables video capture.
-    case video
-    
-    var systemName: String {
-        switch self {
-        case .photo:
-            "camera.fill"
-        case .video:
-            "video.fill"
-        }
     }
 }
 
@@ -84,53 +30,35 @@ enum CaptureMode: String, Identifiable, CaseIterable, Codable {
 struct Photo: Sendable {
     let data: Data
     let isProxy: Bool
-    let livePhotoMovieURL: URL?
 }
 
-/// A structure that contains the uniform type identifier and movie URL.
-struct Movie: Sendable {
-    /// The temporary location of the file on disk.
-    let url: URL
-}
-
+/// A structure for photo capture feature configuration.
 struct PhotoFeatures {
-    let isLivePhotoEnabled: Bool
     let qualityPrioritization: QualityPrioritization
 }
 
-/// A structure that represents the capture capabilities of `CaptureService` in
-/// its current configuration.
+/// A structure that represents the capture capabilities of `CaptureService`.
 struct CaptureCapabilities {
-
-    let isLivePhotoCaptureSupported: Bool
-    let isHDRSupported: Bool
-    
-    init(isLivePhotoCaptureSupported: Bool = false,
-         isHDRSupported: Bool = false) {
-        self.isLivePhotoCaptureSupported = isLivePhotoCaptureSupported
-        self.isHDRSupported = isHDRSupported
-    }
-    
     static let unknown = CaptureCapabilities()
 }
 
+/// Photo quality/speed tradeoff configuration.
 enum QualityPrioritization: Int, Identifiable, CaseIterable, CustomStringConvertible, Codable {
     var id: Self { self }
     case speed = 1
     case balanced
     case quality
+
     var description: String {
         switch self {
-        case.speed:
-            return "Speed"
-        case .balanced:
-            return "Balanced"
-        case .quality:
-            return "Quality"
+        case .speed: return "Speed"
+        case .balanced: return "Balanced"
+        case .quality: return "Quality"
         }
     }
 }
 
+/// Camera-related setup errors.
 enum CameraError: Error {
     case videoDeviceUnavailable
     case audioDeviceUnavailable
@@ -140,6 +68,7 @@ enum CameraError: Error {
     case deviceChangeFailed
 }
 
+/// Protocol for capture services (e.g. photo).
 protocol OutputService {
     associatedtype Output: AVCaptureOutput
     var output: Output { get }
@@ -151,8 +80,8 @@ protocol OutputService {
 
 extension OutputService {
     func setVideoRotationAngle(_ angle: CGFloat) {
-        // Set the rotation angle on the output object's video connection.
         output.connection(with: .video)?.videoRotationAngle = angle
     }
+
     func updateConfiguration(for device: AVCaptureDevice) {}
 }

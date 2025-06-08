@@ -1,10 +1,3 @@
-/*
-See the LICENSE.txt file for this sample’s licensing information.
-
-Abstract:
-An object that provides the interface to the features of the camera.
-*/
-
 import SwiftUI
 import Combine
 import CoreLocation
@@ -22,10 +15,9 @@ final class CameraModel: NSObject, Camera {
     private(set) var error: Error?
 
     var previewSource: PreviewSource { captureService.previewSource }
-    
+
     var showGeoSignedConfirmation: Bool = false
 
-    private(set) var isHDRVideoSupported = false
     private let mediaLibrary = MediaLibrary()
     private let captureService = CaptureService()
     private var cameraState = CameraState()
@@ -36,8 +28,6 @@ final class CameraModel: NSObject, Camera {
 
     override init() {
         super.init()
-        
-        // Start location updates
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.requestWhenInUseAuthorization()
@@ -64,22 +54,7 @@ final class CameraModel: NSObject, Camera {
 
     func syncState() async {
         cameraState = await CameraState.current
-        captureMode = cameraState.captureMode
         qualityPrioritization = cameraState.qualityPrioritization
-        isLivePhotoEnabled = cameraState.isLivePhotoEnabled
-        isHDRVideoEnabled = cameraState.isVideoHDREnabled
-    }
-
-    var captureMode = CaptureMode.photo {
-        didSet {
-            guard status == .running else { return }
-            Task {
-                isSwitchingModes = true
-                defer { isSwitchingModes = false }
-                try? await captureService.setCaptureMode(captureMode)
-                cameraState.captureMode = captureMode
-            }
-        }
     }
 
     func switchVideoDevices() async {
@@ -91,34 +66,28 @@ final class CameraModel: NSObject, Camera {
     // MARK: - Photo capture
 
     func capturePhoto() async {
-        print("📸 Starting capturePhoto()")
+        print("Starting capturePhoto()")
 
         do {
-            let photoFeatures = PhotoFeatures(isLivePhotoEnabled: isLivePhotoEnabled,
-                                              qualityPrioritization: qualityPrioritization)
-            print("⚙️ Created photo features")
+            let photoFeatures = PhotoFeatures(qualityPrioritization: qualityPrioritization)
+            print("Created photo features")
 
             let photo = try await captureService.capturePhoto(with: photoFeatures, location: currentLocation)
-            print("✅ Photo captured")
+            print("Photo captured")
 
             try await mediaLibrary.save(photo: photo)
-            print("💾 Photo saved to media library")
+            print("Photo saved to media library")
 
             DispatchQueue.main.async {
                 self.showGeoSignedConfirmation = true
-                print("🎉 Triggered animation")
+                print("Triggered animation")
             }
         } catch {
-            print("❌ Error during photo capture: \(error)")
+            print("Error during photo capture: \(error)")
             self.error = error
         }
     }
 
-    var isLivePhotoEnabled = true {
-        didSet {
-            cameraState.isLivePhotoEnabled = isLivePhotoEnabled
-        }
-    }
 
     var qualityPrioritization = QualityPrioritization.quality {
         didSet {
@@ -134,32 +103,6 @@ final class CameraModel: NSObject, Camera {
         shouldFlashScreen = true
         withAnimation(.linear(duration: 0.01)) {
             shouldFlashScreen = false
-        }
-    }
-
-    // MARK: - Video capture
-
-    var isHDRVideoEnabled = false {
-        didSet {
-            guard status == .running, captureMode == .video else { return }
-            Task {
-                await captureService.setHDRVideoEnabled(isHDRVideoEnabled)
-                cameraState.isVideoHDREnabled = isHDRVideoEnabled
-            }
-        }
-    }
-
-    func toggleRecording() async {
-        switch await captureService.captureActivity {
-        case .movieCapture:
-            do {
-                let movie = try await captureService.stopRecording()
-                try await mediaLibrary.save(movie: movie)
-            } catch {
-                self.error = error
-            }
-        default:
-            await captureService.startRecording()
         }
     }
 
@@ -179,13 +122,6 @@ final class CameraModel: NSObject, Camera {
                 } else {
                     captureActivity = activity
                 }
-            }
-        }
-
-        Task {
-            for await capabilities in await captureService.$captureCapabilities.values {
-                isHDRVideoSupported = capabilities.isHDRSupported
-                cameraState.isVideoHDRSupported = capabilities.isHDRSupported
             }
         }
 

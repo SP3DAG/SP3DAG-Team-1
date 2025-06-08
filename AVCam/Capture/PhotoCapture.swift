@@ -20,7 +20,6 @@ final class PhotoCapture: OutputService {
     let output = AVCapturePhotoOutput()
     private var photoOutput: AVCapturePhotoOutput { output }
     private(set) var capabilities: CaptureCapabilities = .unknown
-    private var livePhotoCount = 0
 
     func capturePhoto(with features: PhotoFeatures, location: CLLocation? = nil) async throws -> Photo {
         try await withCheckedThrowingContinuation { continuation in
@@ -43,7 +42,6 @@ final class PhotoCapture: OutputService {
         }
 
         photoSettings.maxPhotoDimensions = photoOutput.maxPhotoDimensions
-        photoSettings.livePhotoMovieFileURL = features.isLivePhotoEnabled ? URL.movieFileURL : nil
 
         if let prioritization = AVCapturePhotoOutput.QualityPrioritization(rawValue: features.qualityPrioritization.rawValue) {
             photoSettings.photoQualityPrioritization = prioritization
@@ -55,24 +53,14 @@ final class PhotoCapture: OutputService {
     private func monitorProgress(of delegate: PhotoCaptureDelegate, isolation: isolated (any Actor)? = #isolation) {
         Task {
             _ = isolation
-            var isLivePhoto = false
             for await activity in delegate.activityStream {
-                var currentActivity = activity
-                if activity.isLivePhoto != isLivePhoto {
-                    isLivePhoto = activity.isLivePhoto
-                    livePhotoCount += isLivePhoto ? 1 : -1
-                    if livePhotoCount > 1 {
-                        currentActivity = .photoCapture(willCapture: activity.willCapture, isLivePhoto: true)
-                    }
-                }
-                captureActivity = currentActivity
+                captureActivity = activity
             }
         }
     }
 
     func updateConfiguration(for device: AVCaptureDevice) {
         photoOutput.maxPhotoDimensions = device.activeFormat.supportedMaxPhotoDimensions.last ?? .zero
-        photoOutput.isLivePhotoCaptureEnabled = photoOutput.isLivePhotoCaptureSupported
         photoOutput.maxPhotoQualityPrioritization = .quality
         photoOutput.isResponsiveCaptureEnabled = photoOutput.isResponsiveCaptureSupported
         photoOutput.isFastCapturePrioritizationEnabled = photoOutput.isFastCapturePrioritizationSupported
@@ -81,7 +69,7 @@ final class PhotoCapture: OutputService {
     }
 
     private func updateCapabilities(for device: AVCaptureDevice) {
-        capabilities = CaptureCapabilities(isLivePhotoCaptureSupported: photoOutput.isLivePhotoCaptureSupported)
+        capabilities = CaptureCapabilities()
     }
 }
 
@@ -107,24 +95,8 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
         self.activityContinuation = activityContinuation
     }
 
-    func photoOutput(_ output: AVCapturePhotoOutput, willBeginCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
-        isLivePhoto = resolvedSettings.livePhotoMovieDimensions != .zero
-        activityContinuation.yield(.photoCapture(isLivePhoto: isLivePhoto))
-    }
-
     func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
-        activityContinuation.yield(.photoCapture(willCapture: true, isLivePhoto: isLivePhoto))
-    }
-
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishRecordingLivePhotoMovieForEventualFileAt outputFileURL: URL, resolvedSettings: AVCaptureResolvedPhotoSettings) {
-        activityContinuation.yield(.photoCapture(isLivePhoto: false))
-    }
-
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingLivePhotoToMovieFileAt outputFileURL: URL, duration: CMTime, photoDisplayTime: CMTime, resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
-        if let error {
-            logger.debug("Error processing Live Photo companion movie: \(String(describing: error))")
-        }
-        livePhotoMovieURL = outputFileURL
+        activityContinuation.yield(.photoCapture(willCapture: true))
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishCapturingDeferredPhotoProxy deferredPhotoProxy: AVCaptureDeferredPhotoProxy?, error: Error?) {
@@ -179,7 +151,7 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
             finalData = originalData
         }
 
-        let photo = Photo(data: finalData, isProxy: isProxyPhoto, livePhotoMovieURL: livePhotoMovieURL)
+        let photo = Photo(data: finalData, isProxy: isProxyPhoto)
         continuation.resume(returning: photo)
     }
 }

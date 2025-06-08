@@ -1,32 +1,9 @@
-/*
-See the LICENSE.txt file for this sample’s licensing information.
-
-Abstract:
-A structure that provides camera state to share between the app and the extension.
-*/
-
 import os
 import Foundation
 
 struct CameraState: Codable {
     
-    var isLivePhotoEnabled = true {
-        didSet { save() }
-    }
-    
     var qualityPrioritization = QualityPrioritization.quality {
-        didSet { save() }
-    }
-    
-    var isVideoHDRSupported = true {
-        didSet { save() }
-    }
-    
-    var isVideoHDREnabled = true {
-        didSet { save() }
-    }
-    
-    var captureMode = CaptureMode.photo {
         didSet { save() }
     }
     
