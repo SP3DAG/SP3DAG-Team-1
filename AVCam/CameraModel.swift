@@ -1,6 +1,8 @@
 import SwiftUI
 import Combine
 import CoreLocation
+import Foundation
+import Security
 
 @Observable
 final class CameraModel: NSObject, Camera {
@@ -140,5 +142,25 @@ final class CameraModel: NSObject, Camera {
 extension CameraModel: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         currentLocation = locations.last
+    }
+}
+
+func testKeyGeneration() {
+    do {
+        let privateKey = try KeyManager.loadOrCreatePrivateKey()
+        print("Private key generated or loaded.")
+
+        let publicKey = try KeyManager.getPublicKey()
+        print("Public key extracted.")
+
+        // Print key attributes (just basic inspection)
+        if let privateKeyAttrs = SecKeyCopyAttributes(privateKey) as? [String: Any],
+           let publicKeyAttrs = SecKeyCopyAttributes(publicKey) as? [String: Any] {
+            print("Private Key Attributes: \(privateKeyAttrs)")
+            print("Public Key Attributes: \(publicKeyAttrs)")
+        }
+
+    } catch {
+        print("Key generation failed: \(error.localizedDescription)")
     }
 }

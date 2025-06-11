@@ -158,6 +158,5 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 
 private func embedQRInBlueLSB(message: String, into image: UIImage) -> UIImage? {
     let stego = QRSteganography(blockSize: 8)
-    let qrMatrix = stego.generateQRMatrix(from: message)
-    return stego.embedMultipleQRsInBlueChannel(image: image, qrMatrix: qrMatrix, spacingMultiplier: 2)
+    return stego.embedMultipleQRsInBlueChannel(image: image, qrTexts: [message])
 }

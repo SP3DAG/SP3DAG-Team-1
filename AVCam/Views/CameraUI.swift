@@ -1,14 +1,14 @@
 import SwiftUI
 import AVFoundation
 
-/// A view that presents the main camera user interface.
 struct CameraUI<CameraModel: Camera>: PlatformView {
-    
+
     @State var camera: CameraModel
-    
+    @State private var showVerification = false // ← Add this
+
     @Environment(\.verticalSizeClass) var verticalSizeClass
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
-    
+
     var body: some View {
         Group {
             if isRegularSize {
@@ -20,32 +20,75 @@ struct CameraUI<CameraModel: Camera>: PlatformView {
         .overlay {
             StatusOverlayView(status: camera.status)
         }
+        .sheet(isPresented: $showVerification) {
+            VerificationUIKitWrapper()
+        }
     }
-    
-    /// This view arranges UI elements vertically.
+    var verifyButton: some View {
+            Button(action: {
+                withAnimation {
+                    showVerification = true
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                }
+            }) {
+                Label("Verify", systemImage: "checkmark.shield.fill")
+                    .font(.headline)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 16)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .shadow(radius: 2)
+            }
+            .foregroundColor(.primary)
+            .accessibilityLabel("Start verification")
+        }
+
     @ViewBuilder
     var compactUI: some View {
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                FeaturesToolbar(camera: camera)
-                Spacer()
-                MainToolbar(camera: camera)
-                    .padding(.bottom, geo.safeAreaInsets.bottom + 20)
+            ZStack {
+                VStack(spacing: 0) {
+                    FeaturesToolbar(camera: camera)
+                    Spacer()
+                    MainToolbar(camera: camera)
+                        .padding(.bottom, geo.safeAreaInsets.bottom + 20)
+                }
+                .frame(width: geo.size.width, height: geo.size.height)
+
+                // Top-left verify button
+                VStack {
+                    HStack {
+                        verifyButton
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .padding()
             }
-            .frame(width: geo.size.width, height: geo.size.height)
         }
     }
-    
-    /// This view arranges UI elements in a layered stack.
+
     @ViewBuilder
     var regularUI: some View {
         VStack {
             Spacer()
-            ZStack {
+            ZStack(alignment: .topLeading) {
                 MainToolbar(camera: camera)
                 FeaturesToolbar(camera: camera)
                     .frame(width: 250)
                     .offset(x: 250)
+
+                Button(action: {
+                    showVerification = true
+                }) {
+                    Text("Verify")
+                        .padding(8)
+                        .background(Color.black.opacity(0.7))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .padding()
+                .offset(x: -250) // Adjust this if needed
             }
             .frame(width: 740)
             .background(.ultraThinMaterial.opacity(0.8))
@@ -53,14 +96,10 @@ struct CameraUI<CameraModel: Camera>: PlatformView {
             .padding(.bottom, 32)
         }
     }
-    
+
     var bottomPadding: CGFloat {
         let bounds = UIScreen.main.bounds
         let rect = AVMakeRect(aspectRatio: photoAspectRatio, insideRect: bounds)
         return (rect.minY.rounded() / 2) + 12
     }
-}
-
-#Preview {
-    CameraUI(camera: PreviewCameraModel())
 }
