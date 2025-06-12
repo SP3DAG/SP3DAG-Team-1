@@ -5,6 +5,10 @@ struct QRCodeScannerView: UIViewControllerRepresentable {
     typealias Completion = (Result<String, Error>) -> Void
     var completion: Completion
     
+    init(completion: @escaping Completion) {
+            self.completion = completion
+        }
+    
     func makeUIViewController(context: Context) -> ScannerViewController {
         let vc = ScannerViewController()
         vc.completion = completion

@@ -8,53 +8,94 @@ struct LinkDeviceView: View {
     @State private var deviceUUID: String?
 
     var body: some View {
-        VStack(spacing: 24) {
-            Text("GeoCam Device Linking")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+        VStack {
+            Spacer()
 
-            if let uuid = deviceUUID {
-                Text("Already linked to device:")
-                Text(uuid)
-                    .font(.caption)
-                    .foregroundColor(.gray)
+            VStack(spacing: 24) {
+                Image(systemName: "link.circle.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 60, height: 60)
+                    .foregroundColor(.blue)
+
+                Text("GeoCam Device Linking")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
                     .multilineTextAlignment(.center)
 
-                Button("Unlink Device") {
-                    UserDefaults.standard.removeObject(forKey: "deviceUUID")
-                    deviceUUID = nil
-                    isLinked = false
-                }
-                .foregroundColor(.red)
+                Group {
+                    if let uuid = deviceUUID {
+                        VStack(spacing: 8) {
+                            Text("This device is currently linked to:")
+                                .font(.headline)
+                            Text(uuid)
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
 
-            } else {
-                Text("To start, scan the QR code from the website.")
+                            Button("Unlink Device") {
+                                UserDefaults.standard.removeObject(forKey: "deviceUUID")
+                                deviceUUID = nil
+                                isLinked = false
+                            }
+                            .foregroundColor(.red)
+                            .padding(.top)
+                        }
 
-                Button(action: {
-                    isScanning = true
-                }) {
-                    Text("📷 Scan QR Code")
-                        .fontWeight(.semibold)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
+                    } else {
+                        VStack(spacing: 12) {
+                            Text("To start, visit the website and scan the QR code to link your device.")
+                                .multilineTextAlignment(.center)
+                                .font(.body)
 
-                if let errorMessage = errorMessage {
-                    Text(errorMessage)
-                        .foregroundColor(.red)
-                        .font(.caption)
-                }
+                            Link("Go to example.com", destination: URL(string: "https://example.com")!)
+                                .font(.subheadline)
+                                .foregroundColor(.blue)
+                                .underline()
 
-                if showSuccess {
-                    Text("Device linked successfully!")
-                        .foregroundColor(.green)
-                        .font(.headline)
+                            Button(action: {
+                                isScanning = true
+                            }) {
+                                Label("Scan QR Code", systemImage: "qrcode.viewfinder")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.blue)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                            }
+
+                            if let errorMessage = errorMessage {
+                                Text(errorMessage)
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                            }
+
+                            if showSuccess {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                    Text("Device linked successfully!")
+                                }
+                                .foregroundColor(.green)
+                                .font(.subheadline)
+                                .transition(.opacity)
+                            }
+                        }
+                    }
                 }
+                .padding()
             }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color(UIColor.secondarySystemBackground))
+                    .shadow(radius: 10)
+            )
+            .padding(.horizontal, 24)
+
+            Spacer()
         }
-        .padding()
+        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
         .onAppear {
             deviceUUID = UserDefaults.standard.string(forKey: "deviceUUID")
             isLinked = deviceUUID != nil

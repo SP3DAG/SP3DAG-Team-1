@@ -19,7 +19,7 @@ enum APIServiceError: Error, LocalizedError {
 
 struct APIService {
     static func uploadLinkToken(token: String, publicKey: String) async throws -> Bool {
-        guard let url = URL(string: "http://10.65.9.59:8000/api/complete-link") else {
+        guard let url = URL(string: "https://backend-dzm1.onrender.com/api/complete-link") else {
             throw APIServiceError.invalidURL
         }
 

@@ -4,7 +4,7 @@ import SwiftUI
 @main
 struct AVCamApp: App {
     @State private var camera = CameraModel()
-    @State private var isLinked: Bool = UserDefaults.standard.string(forKey: "userCode") != nil
+    @State private var isLinked: Bool = UserDefaults.standard.string(forKey: "deviceUUID") != nil
     @State private var showSettings = false
     @Environment(\.scenePhase) var scenePhase
 
@@ -44,7 +44,7 @@ struct AVCamApp: App {
                 }
 
             } else {
-                LinkDeviceView(isLinked: $isLinked)
+                WelcomeLinkView(isLinked: $isLinked)
             }
         }
     }
