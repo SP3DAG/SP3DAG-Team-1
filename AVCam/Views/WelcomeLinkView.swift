@@ -18,11 +18,11 @@ struct WelcomeLinkView: View {
                 Spacer()
 
                 VStack(spacing: 16) {
-                    Image(systemName: "camera.viewfinder")
+                    Image("StartImage")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 64, height: 64)
-                        .foregroundColor(.blue)
+                        //.foregroundColor(.blue)
 
                     Text("Welcome to GeoCam")
                         .font(.largeTitle)

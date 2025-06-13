@@ -13,7 +13,7 @@ struct AVCamApp: App {
             if isLinked {
                 ZStack(alignment: .topTrailing) {
                     CameraView(camera: camera)
-                        .statusBarHidden(true)
+                        .statusBarHidden(false)
                         .task {
                             await camera.start()
                                 do {

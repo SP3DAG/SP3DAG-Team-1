@@ -27,6 +27,7 @@
 		22DBC0A52DF9A35E00928B95 /* VerificationRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22DBC0A32DF9A35D00928B95 /* VerificationRepresentable.swift */; };
 		22DBC0A72DFAFBF300928B95 /* WelcomeLinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22DBC0A62DFAFBEE00928B95 /* WelcomeLinkView.swift */; };
 		22DBC0AA2DFB043600928B95 /* Color.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22DBC0A92DFB043300928B95 /* Color.swift */; };
+		22DBC0C62DFC311400928B95 /* NVActivityIndicatorView in Frameworks */ = {isa = PBXBuildFile; productRef = 22DBC0C52DFC311400928B95 /* NVActivityIndicatorView */; };
 		C400F46128DFD8AC00861093 /* ThumbnailButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = C400F45E28DFD8AC00861093 /* ThumbnailButton.swift */; };
 		C400F46328DFDAB700861093 /* FoundationExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C400F46228DFDAB700861093 /* FoundationExtensions.swift */; };
 		C40A95B92CC9A91A00A02AF1 /* CameraState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A73C9F2CC0748800C2FA84 /* CameraState.swift */; };
@@ -221,6 +222,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				22DBC0C62DFC311400928B95 /* NVActivityIndicatorView in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -497,6 +499,9 @@
 				Base,
 			);
 			mainGroup = C4F82C90285ADDA2005D427A;
+			packageReferences = (
+				22DBC0C42DFC311400928B95 /* XCRemoteSwiftPackageReference "NVActivityIndicatorView" */,
+			);
 			productRefGroup = C4F82C9A285ADDA2005D427A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -1073,6 +1078,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		22DBC0C42DFC311400928B95 /* XCRemoteSwiftPackageReference "NVActivityIndicatorView" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ninjaprox/NVActivityIndicatorView.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		22DBC0C52DFC311400928B95 /* NVActivityIndicatorView */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 22DBC0C42DFC311400928B95 /* XCRemoteSwiftPackageReference "NVActivityIndicatorView" */;
+			productName = NVActivityIndicatorView;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C4F82C91285ADDA2005D427A /* Project object */;
 }
