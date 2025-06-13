@@ -1,10 +1,3 @@
-/*
-See the LICENSE.txt file for this sample’s licensing information.
-
-Abstract:
-A view that displays controls to capture, switch cameras, and view the last captured media item.
-*/
-
 import SwiftUI
 import PhotosUI
 
@@ -16,9 +9,10 @@ struct MainToolbar<CameraModel: Camera>: PlatformView {
     
     @State var camera: CameraModel
     
+    
     var body: some View {
         HStack {
-			ThumbnailButton(camera: camera)
+            ThumbnailButton(camera: camera)
                 // Hide the thumbnail button when a person interacts with capture controls.
                 .opacity(camera.prefersMinimizedUI ? 0 : 1)
             Spacer()

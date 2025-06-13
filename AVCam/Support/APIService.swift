@@ -17,7 +17,12 @@ enum APIServiceError: Error, LocalizedError {
     }
 }
 
+struct VerificationResult: Decodable {
+    let decoded_message: String
+}
+
 struct APIService {
+    
     static func uploadLinkToken(token: String, publicKey: String) async throws -> Bool {
         guard let url = URL(string: "https://backend-dzm1.onrender.com/api/complete-link") else {
             throw APIServiceError.invalidURL
@@ -51,6 +56,48 @@ struct APIService {
 
         if httpResponse.statusCode == 200 {
             return true
+        } else {
+            let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw APIServiceError.serverError(message: msg)
+        }
+    }
+    
+    static func verifyImage(deviceUUID: String, imageData: Data) async throws -> VerificationResult {
+        guard let url = URL(string: "https://backend-dzm1.onrender.com/verify-image/") else {
+            throw APIServiceError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+
+        // Device UUID field
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"device_uuid\"\r\n\r\n")
+        body.append("\(deviceUUID)\r\n")
+
+        // Image file field
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"image.png\"\r\n")
+        body.append("Content-Type: image/png\r\n\r\n")
+        body.append(imageData)
+        body.append("\r\n")
+
+        body.append("--\(boundary)--\r\n")
+        request.httpBody = body
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIServiceError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            return try JSONDecoder().decode(VerificationResult.self, from: data)
         } else {
             let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
             throw APIServiceError.serverError(message: msg)

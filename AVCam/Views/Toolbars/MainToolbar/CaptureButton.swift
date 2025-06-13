@@ -6,12 +6,15 @@ struct CaptureButton<CameraModel: Camera>: View {
     
     @State var camera: CameraModel
     
+    var onCaptureComplete: (() -> Void)? = nil
+    
     private let mainButtonDimension: CGFloat = 68
     
     var body: some View {
         PhotoCaptureButton {
             Task {
                 await camera.capturePhoto()
+                onCaptureComplete?()
             }
         }
         .aspectRatio(1.0, contentMode: .fit)
