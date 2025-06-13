@@ -12,7 +12,7 @@ struct AVCamApp: App {
         WindowGroup {
             if isLinked {
                 ZStack(alignment: .topTrailing) {
-                    CameraView(camera: camera)
+                    CameraView(camera: camera, showSettings: $showSettings)
                         .statusBarHidden(false)
                         .task {
                             await camera.start()
@@ -29,15 +29,6 @@ struct AVCamApp: App {
                                 await camera.syncState()
                             }
                         }
-
-                    Button(action: {
-                        showSettings = true
-                        print("Settings tapped")
-                    }) {
-                        Image(systemName: "gearshape.fill")
-                            .padding()
-                            .font(.title2)
-                    }
                 }
                 .sheet(isPresented: $showSettings) {
                     LinkDeviceView(isLinked: $isLinked)

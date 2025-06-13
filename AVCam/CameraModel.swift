@@ -17,8 +17,11 @@ final class CameraModel: NSObject, Camera {
     private(set) var error: Error?
 
     var previewSource: PreviewSource { captureService.previewSource }
-
+    var isLoading: Bool = false
     var showGeoSignedConfirmation: Bool = false
+    var isInteractionLocked: Bool {
+        isLoading || showGeoSignedConfirmation
+    }
 
     private let mediaLibrary = MediaLibrary()
     private let captureService = CaptureService()
@@ -69,6 +72,8 @@ final class CameraModel: NSObject, Camera {
 
     func capturePhoto() async {
         print("Starting capturePhoto()")
+        
+        isLoading = true
 
         do {
             let photoFeatures = PhotoFeatures(qualityPrioritization: qualityPrioritization)
@@ -87,9 +92,9 @@ final class CameraModel: NSObject, Camera {
         } catch {
             print("Error during photo capture: \(error)")
             self.error = error
+            isLoading = false
         }
     }
-
 
     var qualityPrioritization = QualityPrioritization.quality {
         didSet {

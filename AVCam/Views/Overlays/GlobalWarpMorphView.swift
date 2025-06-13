@@ -1,15 +1,8 @@
-//
-//  GlobalWarpMorphView.swift
-//  AVCam
-//
-//  Created by Moritz Denk on 06.06.25.
-//  Copyright © 2025 Apple. All rights reserved.
-//
-
 import SwiftUI
 
 struct GlobeWarpMorphView: View {
     @Binding var show: Bool
+    var onDismiss: (() -> Void)? = nil
 
     @State private var globeVisible = true
     @State private var checkVisible = false
@@ -103,14 +96,15 @@ struct GlobeWarpMorphView: View {
             }
 
             // Step 5: Auto-dismiss
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
-                withAnimation(.easeOut(duration: 0.3)) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation(.easeOut(duration: 0.6)) {
                     checkOpacity = 0.0
                     textOpacity = 0.0
                 }
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     reset()
+                    onDismiss?()
                 }
             }
         }
