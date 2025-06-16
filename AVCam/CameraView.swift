@@ -12,11 +12,12 @@ struct CameraView: PlatformView {
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
     @State var swipeDirection = SwipeDirection.left
+    @State private var showInfo = false
 
     var body: some View {
         ZStack {
             // === Camera content ===
-            Group {
+            ZStack {
                 PreviewContainer(camera: camera) {
                     CameraPreview(source: camera.previewSource)
                         .onCameraCaptureEvent { event in
@@ -31,18 +32,19 @@ struct CameraView: PlatformView {
                         }
                         .opacity(camera.shouldFlashScreen ? 0 : 1)
                 }
-
+                
                 CameraUI(camera: camera)
             }
-            .allowsHitTesting(!camera.isInteractionLocked)
+            .blur(radius: camera.isLoading ? 4 : 0)
+            .disabled(camera.isLoading)
             .zIndex(0)
-
+            
             // === Loading overlay ===
             if camera.isLoading && !camera.showGeoSignedConfirmation {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                     .zIndex(10)
-
+                
                 VStack {
                     LoadingIndicatorView()
                         .frame(width: 60, height: 60)
@@ -55,7 +57,7 @@ struct CameraView: PlatformView {
                 .ignoresSafeArea()
                 .zIndex(11)
             }
-
+            
             // === Signing animation ===
             if camera.showGeoSignedConfirmation {
                 GlobeWarpMorphView(show: $camera.showGeoSignedConfirmation) {
@@ -64,28 +66,43 @@ struct CameraView: PlatformView {
                 .transition(.opacity)
                 .zIndex(20)
             }
-
+            
             // === Settings button (always on top) ===
+            // === Settings and Info buttons ===
             VStack {
                 HStack {
                     Spacer()
+                    Button(action: {
+                        showInfo = true
+                    }) {
+                        Image(systemName: "info.circle")
+                            .padding(.trailing, 4)
+                            .font(.title2)
+                            .foregroundColor(.white)
+                    }
+                    .disabled(camera.isLoading)
+                    .opacity(camera.isLoading ? 0.4 : 1.0)
+
                     Button(action: {
                         showSettings = true
                         print("Settings tapped")
                     }) {
                         Image(systemName: "gearshape.fill")
-                            .padding()
+                            .padding(.leading, 4)
                             .font(.title2)
                             .foregroundColor(.white)
                     }
-                    .disabled(camera.isInteractionLocked)
-                    .opacity(camera.isInteractionLocked ? 0.4 : 1.0)
+                    .disabled(camera.isLoading)
+                    .opacity(camera.isLoading ? 0.4 : 1.0)
                 }
                 Spacer()
             }
             .padding(.top, 8)
             .padding(.horizontal, 16)
             .zIndex(30)
+            .sheet(isPresented: $showInfo) {
+                InfoView()
+            }
         }
     }
 }

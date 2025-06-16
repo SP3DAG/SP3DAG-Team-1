@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2210EA2C2E00056000BB5350 /* InfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2210EA2B2E00056000BB5350 /* InfoView.swift */; };
 		22165C002DF319D700F5427B /* QRSteganography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22165BFD2DF319D200F5427B /* QRSteganography.swift */; };
 		226595932DF31C060011CC23 /* GlobalWarpMorphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226595922DF31BFE0011CC23 /* GlobalWarpMorphView.swift */; };
 		22DBC0822DF5E76A00928B95 /* KeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22DBC07F2DF5E76600928B95 /* KeyManager.swift */; };
@@ -73,6 +74,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2210EA2B2E00056000BB5350 /* InfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoView.swift; sourceTree = "<group>"; };
 		22165BFD2DF319D200F5427B /* QRSteganography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRSteganography.swift; sourceTree = "<group>"; };
 		226595922DF31BFE0011CC23 /* GlobalWarpMorphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalWarpMorphView.swift; sourceTree = "<group>"; };
 		22DBC07F2DF5E76600928B95 /* KeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyManager.swift; sourceTree = "<group>"; };
@@ -194,6 +196,7 @@
 		C472D847285BD4A40082244A /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				2210EA2B2E00056000BB5350 /* InfoView.swift */,
 				22DBC0C72DFC321400928B95 /* LoadingIndicatorView.swift */,
 				22DBC0A62DFAFBEE00928B95 /* WelcomeLinkView.swift */,
 				22DBC0A32DF9A35D00928B95 /* VerificationRepresentable.swift */,
@@ -386,6 +389,7 @@
 				C44DC7BE289AC3DD0099BB87 /* PreviewContainer.swift in Sources */,
 				C4DCF51428947AFA00805EE2 /* PreviewCameraModel.swift in Sources */,
 				C48091852BD584AD00753C4A /* CameraModel.swift in Sources */,
+				2210EA2C2E00056000BB5350 /* InfoView.swift in Sources */,
 				C4F82CCE285AE233005D427A /* CameraPreview.swift in Sources */,
 				C4F82CCA285AE13B005D427A /* Camera.swift in Sources */,
 				C4E15AB12898660900827683 /* PhotoCapture.swift in Sources */,
