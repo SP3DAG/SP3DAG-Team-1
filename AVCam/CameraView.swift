@@ -13,6 +13,8 @@ struct CameraView: PlatformView {
 
     @State var swipeDirection = SwipeDirection.left
     @State private var showInfo = false
+    
+    let horizontalEdgePadding: CGFloat = 16
 
     var body: some View {
         ZStack {
@@ -98,7 +100,7 @@ struct CameraView: PlatformView {
                 Spacer()
             }
             .padding(.top, 8)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, horizontalEdgePadding)
             .zIndex(30)
             .sheet(isPresented: $showInfo) {
                 InfoView()

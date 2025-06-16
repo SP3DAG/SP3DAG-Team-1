@@ -4,7 +4,8 @@ import AVFoundation
 struct CameraUI<CameraModel: Camera>: PlatformView {
 
     @State var camera: CameraModel
-    @State private var showVerification = false // ← Add this
+    @State private var showVerification = false
+    let horizontalEdgePadding: CGFloat = 16
 
     @Environment(\.verticalSizeClass) var verticalSizeClass
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
@@ -63,7 +64,8 @@ struct CameraUI<CameraModel: Camera>: PlatformView {
                     }
                     Spacer()
                 }
-                .padding()
+                .padding(.top, 8)
+                .padding(.horizontal, horizontalEdgePadding)
             }
         }
     }
@@ -87,7 +89,8 @@ struct CameraUI<CameraModel: Camera>: PlatformView {
                         .foregroundColor(.white)
                         .cornerRadius(8)
                 }
-                .padding()
+                .padding(.top, 8)
+                .padding(.horizontal, horizontalEdgePadding)
                 .offset(x: -250) // Adjust this if needed
             }
             .frame(width: 740)
