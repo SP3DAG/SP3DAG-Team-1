@@ -8,6 +8,12 @@ struct AVCamApp: App {
     @State private var showSettings = false
     @Environment(\.scenePhase) var scenePhase
 
+    init() {
+        if let id = UserDefaults.standard.string(forKey: "deviceUUID") {
+            SessionManager.shared.deviceID = id
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             if isLinked {
@@ -16,12 +22,12 @@ struct AVCamApp: App {
                         .statusBarHidden(false)
                         .task {
                             await camera.start()
-                                do {
-                                    let pem = try KeyManager.getPublicKey().toPEM()
-                                    print("Public Key PEM:\n\(pem)")
-                                } catch {
-                                    print("Failed to get PEM key: \(error)")
-                                }
+                            do {
+                                let pem = try KeyManager.getPublicKey().toPEM()
+                                print("Public Key PEM:\n\(pem)")
+                            } catch {
+                                print("Failed to get PEM key: \(error)")
+                            }
                         }
                         .onChange(of: scenePhase) { _, newPhase in
                             guard camera.status == .running, newPhase == .active else { return }
@@ -33,7 +39,6 @@ struct AVCamApp: App {
                 .sheet(isPresented: $showSettings) {
                     LinkDeviceView(isLinked: $isLinked)
                 }
-
             } else {
                 WelcomeLinkView(isLinked: $isLinked)
             }

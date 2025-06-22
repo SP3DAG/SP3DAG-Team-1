@@ -3,26 +3,12 @@ import MapKit
 
 class VerificationViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
 
-    private let introLabel = UILabel()
-    private let geoCamPrefixLabel = UILabel()
-    private let deviceNumberField = UITextField()
     private let statusLabel = UILabel()
     private let selectButton = UIButton(type: .system)
     private let anotherButton = UIButton(type: .system)
     private let mapView = MKMapView()
-    
-    private let resetButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("Start Over", for: .normal)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .regular)
-        button.addTarget(self, action: #selector(resetUI), for: .touchUpInside)
-        button.isHidden = true
-        return button
-    }()
 
     private var selectedImage: UIImage?
-
-    private var deviceIDStack: UIStackView!
     private var mainStack: UIStackView!
 
     override func viewDidLoad() {
@@ -33,44 +19,18 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
     }
 
     private func setupUI() {
-        // Intro label
-        introLabel.text = "Please enter the GeoCam ID:"
-        introLabel.font = .systemFont(ofSize: 16)
-        introLabel.textAlignment = .center
-
-        // Prefix label
-        geoCamPrefixLabel.text = "GeoCam_"
-        geoCamPrefixLabel.font = .systemFont(ofSize: 16)
-
-        // Input field
-        deviceNumberField.placeholder = "e.g. 1"
-        deviceNumberField.borderStyle = .roundedRect
-        deviceNumberField.keyboardType = .numberPad
-        deviceNumberField.widthAnchor.constraint(equalToConstant: 80).isActive = true
-
-        let toolbar = UIToolbar()
-        toolbar.sizeToFit()
-        let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
-        let done = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(dismissKeyboard))
-        toolbar.setItems([flex, done], animated: false)
-        deviceNumberField.inputAccessoryView = toolbar
-
-        deviceIDStack = UIStackView(arrangedSubviews: [geoCamPrefixLabel, deviceNumberField])
-        deviceIDStack.axis = .horizontal
-        deviceIDStack.spacing = 5
-        deviceIDStack.alignment = .center
-
         // Status label
         statusLabel.text = "Please select an image to verify."
         statusLabel.font = .systemFont(ofSize: 16)
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 0
 
-        // Buttons
+        // Select button
         selectButton.setTitle("Select Image", for: .normal)
         selectButton.titleLabel?.font = .systemFont(ofSize: 18)
         selectButton.addTarget(self, action: #selector(selectImage), for: .touchUpInside)
 
+        // Select another button
         anotherButton.setTitle("Select Another Image", for: .normal)
         anotherButton.titleLabel?.font = .systemFont(ofSize: 18)
         anotherButton.addTarget(self, action: #selector(selectImage), for: .touchUpInside)
@@ -83,14 +43,12 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
         mapView.layer.borderWidth = 1
         mapView.isHidden = true
 
+        // Stack view
         mainStack = UIStackView(arrangedSubviews: [
-            introLabel,
-            deviceIDStack,
             statusLabel,
             selectButton,
             mapView,
-            anotherButton,
-            resetButton
+            anotherButton
         ])
         mainStack.axis = .vertical
         mainStack.spacing = 20
@@ -109,33 +67,13 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
         ])
     }
 
-    @objc private func dismissKeyboard() {
-        view.endEditing(true)
-    }
-
     @objc private func selectImage() {
-        dismissKeyboard()
         let picker = UIImagePickerController()
         picker.delegate = self
         picker.sourceType = .photoLibrary
         present(picker, animated: true)
     }
-    
-    @objc private func resetUI() {
-        selectedImage = nil
-        deviceNumberField.text = ""
-        
-        introLabel.isHidden = false
-        deviceIDStack.isHidden = false
-        selectButton.isHidden = false
-        anotherButton.isHidden = true
-        resetButton.isHidden = true
-        mapView.isHidden = true
-        mapView.removeAnnotations(mapView.annotations)
 
-        statusLabel.text = "Please select an image to verify."
-    }
-    
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
         picker.dismiss(animated: true)
 
@@ -146,22 +84,10 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
 
         selectedImage = image
         selectButton.isHidden = true
-
-        if let id = deviceNumberField.text, !id.isEmpty {
-            verifyImage(image)
-        } else {
-            statusLabel.text = "Please enter a GeoCam ID and reselect the image."
-            anotherButton.isHidden = false
-        }
+        verifyImage(image)
     }
 
     private func verifyImage(_ image: UIImage) {
-        guard let id = deviceNumberField.text, !id.isEmpty else {
-            statusLabel.text = "Please enter a valid GeoCam ID."
-            return
-        }
-
-        let deviceID = "GeoCam_\(id)"
         statusLabel.text = "Verifying..."
         mapView.isHidden = true
         mapView.removeAnnotations(mapView.annotations)
@@ -173,7 +99,7 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
 
         Task {
             do {
-                let result = try await APIService.verifyImage(deviceUUID: deviceID, imageData: data)
+                let result = try await APIService.verifyImage(imageData: data)
                 let message = result.decoded_message
 
                 let rawTime = message.components(separatedBy: " | ").first ?? message
@@ -181,7 +107,6 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
 
                 statusLabel.text = "Verified on \(formatted)"
 
-                // Handle location
                 if let locRange = message.range(of: "Location: ") {
                     let coordsString = message[locRange.upperBound...].trimmingCharacters(in: .whitespaces)
                     let parts = coordsString.split(separator: ",")
@@ -198,11 +123,7 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
                     }
                 }
 
-                introLabel.isHidden = true
-                deviceIDStack.isHidden = true
-                selectButton.isHidden = true
                 anotherButton.isHidden = false
-                resetButton.isHidden = false
 
             } catch {
                 statusLabel.text = "API Error: \(error.localizedDescription)"

@@ -2,10 +2,10 @@ import SwiftUI
 
 struct LinkDeviceView: View {
     @Binding var isLinked: Bool
-    @State private var isScanning = false
     @State private var showSuccess = false
     @State private var errorMessage: String?
     @State private var deviceUUID: String?
+    @State private var isLoading = false
 
     var body: some View {
         VStack {
@@ -23,67 +23,53 @@ struct LinkDeviceView: View {
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
 
-                Group {
-                    if let uuid = deviceUUID {
-                        VStack(spacing: 8) {
-                            Text("This device is currently linked to:")
-                                .font(.headline)
-                            Text(uuid)
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                                .multilineTextAlignment(.center)
+                if let uuid = deviceUUID {
+                    VStack(spacing: 8) {
+                        Text("This device is linked to:")
+                            .font(.headline)
+                        Text(uuid)
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
 
-                            Button("Unlink Device") {
-                                UserDefaults.standard.removeObject(forKey: "deviceUUID")
-                                deviceUUID = nil
-                                isLinked = false
+                        if showSuccess {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Device linked successfully!")
                             }
-                            .foregroundColor(.red)
-                            .padding(.top)
+                            .foregroundColor(.green)
+                            .font(.subheadline)
+                            .transition(.opacity)
                         }
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        Text("Tap the button below to link this device to the GeoCam system.")
+                            .multilineTextAlignment(.center)
+                            .font(.body)
 
-                    } else {
-                        VStack(spacing: 12) {
-                            Text("To start, visit the website and scan the QR code to link your device.")
-                                .multilineTextAlignment(.center)
-                                .font(.body)
-
-                            Link("Go to example.com", destination: URL(string: "https://example.com")!)
-                                .font(.subheadline)
-                                .foregroundColor(.blue)
-                                .underline()
-
-                            Button(action: {
-                                isScanning = true
-                            }) {
-                                Label("Scan QR Code", systemImage: "qrcode.viewfinder")
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(12)
+                        Button(action: {
+                            Task {
+                                await linkDeviceAutomatically()
                             }
+                        }) {
+                            Label("Link Device", systemImage: "link")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(isLoading ? Color.gray : Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                        }
+                        .disabled(isLoading)
 
-                            if let errorMessage = errorMessage {
-                                Text(errorMessage)
-                                    .foregroundColor(.red)
-                                    .font(.caption)
-                            }
-
-                            if showSuccess {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                    Text("Device linked successfully!")
-                                }
-                                .foregroundColor(.green)
-                                .font(.subheadline)
-                                .transition(.opacity)
-                            }
+                        if let errorMessage = errorMessage {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.caption)
                         }
                     }
                 }
-                .padding()
             }
             .padding()
             .background(
@@ -100,35 +86,24 @@ struct LinkDeviceView: View {
             deviceUUID = UserDefaults.standard.string(forKey: "deviceUUID")
             isLinked = deviceUUID != nil
         }
-        .sheet(isPresented: $isScanning) {
-            QRCodeScannerView { result in
-                isScanning = false
-                switch result {
-                case .success(let payload):
-                    Task {
-                        await linkDevice(with: payload)
-                    }
-                case .failure(let error):
-                    errorMessage = "Scan failed: \(error.localizedDescription)"
-                }
-            }
-        }
     }
 
-    private func linkDevice(with payload: String) async {
+    private func linkDeviceAutomatically() async {
+        isLoading = true
+        errorMessage = nil
+        showSuccess = false
+
         do {
-            guard let data = payload.data(using: .utf8),
-                  let json = try JSONSerialization.jsonObject(with: data) as? [String: String],
-                  let token = json["token"], let uuid = json["uuid"] else {
-                errorMessage = "Invalid QR code format"
-                return
-            }
+            let linkInfo = try await APIService.generateLinkToken()
+            let token = linkInfo.token
+            let uuid = linkInfo.device_uuid
 
             let pem = try KeyManager.getPublicKey().toPEM()
             let success = try await APIService.uploadLinkToken(token: token, publicKey: pem)
 
             if success {
                 UserDefaults.standard.set(uuid, forKey: "deviceUUID")
+                SessionManager.shared.deviceID = uuid
                 deviceUUID = uuid
                 isLinked = true
                 showSuccess = true
@@ -138,5 +113,7 @@ struct LinkDeviceView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+
+        isLoading = false
     }
 }

@@ -144,10 +144,18 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
         }
 
         let finalData: Data
-        if let stegoImage = embedQRInBlueLSB(message: hiddenMessage, into: image),
-           let stegoData = stegoImage.pngData() {
-            finalData = stegoData
+        if let deviceID = SessionManager.shared.deviceID {
+            print("Device ID found: \(deviceID)")
+            if let stegoImage = embedQRInBlueLSB(message: hiddenMessage, into: image, deviceID: deviceID),
+               let stegoData = stegoImage.pngData() {
+                print("Embedding succeeded")
+                finalData = stegoData
+            } else {
+                print("Embedding failed, falling back to original")
+                finalData = originalData
+            }
         } else {
+            print("No device ID found, falling back to original")
             finalData = originalData
         }
 
@@ -156,7 +164,7 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     }
 }
 
-private func embedQRInBlueLSB(message: String, into image: UIImage) -> UIImage? {
+private func embedQRInBlueLSB(message: String, into image: UIImage, deviceID: String) -> UIImage? {
     let stego = QRSteganography(blockSize: 8)
-    return stego.embedMultipleQRsInBlueChannel(image: image, qrTexts: [message])
+    return stego.embedMultipleQRsInBlueChannel(image: image, qrTexts: [message], deviceID: deviceID)
 }

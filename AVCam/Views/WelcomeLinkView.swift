@@ -2,9 +2,9 @@ import SwiftUI
 
 struct WelcomeLinkView: View {
     @Binding var isLinked: Bool
-    @State private var isScanning = false
     @State private var errorMessage: String?
     @State private var showSuccess = false
+    @State private var isLoading = false
 
     var body: some View {
         ZStack {
@@ -12,7 +12,7 @@ struct WelcomeLinkView: View {
                 Color(hex: "#3B5463"),
                 Color(hex: "#1D161D")
             ]), startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
+            .ignoresSafeArea()
 
             VStack(spacing: 24) {
                 Spacer()
@@ -22,22 +22,19 @@ struct WelcomeLinkView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 64, height: 64)
-                        //.foregroundColor(.blue)
 
                     Text("Welcome to GeoCam")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .multilineTextAlignment(.center)
 
-                    VStack(spacing: 8) {
-                        Text("To get started, link your device by scanning a QR code.")
-                        Text("Go to example.com to generate your QR code.")
-                    }
-                    .font(.body)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+                    Text("Tap below to link your device automatically.")
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
                 }
                 .padding()
+                .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 20)
                         .fill(Color(UIColor.secondarySystemBackground))
@@ -46,17 +43,20 @@ struct WelcomeLinkView: View {
                 .padding(.horizontal)
 
                 Button(action: {
-                    isScanning = true
+                    Task {
+                        await linkDeviceAutomatically()
+                    }
                 }) {
-                    Label("Scan QR Code", systemImage: "qrcode.viewfinder")
+                    Label("Link Device", systemImage: "link.circle")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.blue)
+                        .background(isLoading ? Color.gray : Color.blue)
                         .foregroundColor(.white)
                         .cornerRadius(12)
                         .padding(.horizontal)
                 }
+                .disabled(isLoading)
 
                 if let errorMessage = errorMessage {
                     Text(errorMessage)
@@ -81,35 +81,28 @@ struct WelcomeLinkView: View {
             }
             .animation(.easeInOut, value: showSuccess)
         }
-        .sheet(isPresented: $isScanning) {
-            QRCodeScannerView { result in
-                isScanning = false
-                switch result {
-                case .success(let payload):
-                    Task {
-                        await linkDevice(with: payload)
-                    }
-                case .failure(let error):
-                    errorMessage = "Scan failed: \(error.localizedDescription)"
-                }
-            }
-        }
     }
 
-    private func linkDevice(with payload: String) async {
-        do {
-            guard let data = payload.data(using: .utf8),
-                  let json = try JSONSerialization.jsonObject(with: data) as? [String: String],
-                  let token = json["token"], let uuid = json["uuid"] else {
-                errorMessage = "Invalid QR code format"
-                return
-            }
+    private func linkDeviceAutomatically() async {
+        isLoading = true
+        errorMessage = nil
+        showSuccess = false
 
+        do {
+            // 1. Ask backend to generate a new token + device ID
+            let linkInfo = try await APIService.generateLinkToken()
+            let token = linkInfo.token
+            let uuid = linkInfo.device_uuid
+
+            // 2. Convert public key to PEM
             let pem = try KeyManager.getPublicKey().toPEM()
+
+            // 3. Upload public key to backend
             let success = try await APIService.uploadLinkToken(token: token, publicKey: pem)
 
             if success {
                 UserDefaults.standard.set(uuid, forKey: "deviceUUID")
+                SessionManager.shared.deviceID = uuid
                 isLinked = true
                 showSuccess = true
             } else {
@@ -118,5 +111,22 @@ struct WelcomeLinkView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+
+        isLoading = false
     }
 }
+#if DEBUG
+struct WelcomeLinkView_Previews: PreviewProvider {
+    static var previews: some View {
+        SimulatedWelcomeContainer()
+    }
+
+    struct SimulatedWelcomeContainer: View {
+        @State private var isLinked = false
+
+        var body: some View {
+            WelcomeLinkView(isLinked: $isLinked)
+        }
+    }
+}
+#endif

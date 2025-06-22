@@ -1,20 +1,9 @@
 import Foundation
 
-class SessionManager: ObservableObject {
-    @Published var isSignedIn: Bool
+final class SessionManager {
+    static let shared = SessionManager()
 
-    init() {
-        // Check if user ID exists
-        self.isSignedIn = UserDefaults.standard.string(forKey: "appleUserID") != nil
-    }
+    private init() {}
 
-    func signIn(userID: String) {
-        UserDefaults.standard.set(userID, forKey: "appleUserID")
-        self.isSignedIn = true
-    }
-
-    func signOut() {
-        UserDefaults.standard.removeObject(forKey: "appleUserID")
-        self.isSignedIn = false
-    }
+    var deviceID: String?
 }
