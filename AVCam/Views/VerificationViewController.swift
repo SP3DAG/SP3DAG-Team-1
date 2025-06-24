@@ -11,6 +11,8 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
     private var selectedImage: UIImage?
     private var mainStack: UIStackView!
 
+    // MARK: - View lifecycle
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
@@ -18,32 +20,29 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
         setupUI()
     }
 
+    // MARK: - UI setup
+
     private func setupUI() {
-        // Status label
         statusLabel.text = "Please select an image to verify."
         statusLabel.font = .systemFont(ofSize: 16)
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 0
 
-        // Select button
         selectButton.setTitle("Select Image", for: .normal)
         selectButton.titleLabel?.font = .systemFont(ofSize: 18)
         selectButton.addTarget(self, action: #selector(selectImage), for: .touchUpInside)
 
-        // Select another button
         anotherButton.setTitle("Select Another Image", for: .normal)
         anotherButton.titleLabel?.font = .systemFont(ofSize: 18)
         anotherButton.addTarget(self, action: #selector(selectImage), for: .touchUpInside)
         anotherButton.isHidden = true
 
-        // Map View
         mapView.translatesAutoresizingMaskIntoConstraints = false
         mapView.layer.cornerRadius = 10
         mapView.layer.borderColor = UIColor.lightGray.cgColor
         mapView.layer.borderWidth = 1
         mapView.isHidden = true
 
-        // Stack view
         mainStack = UIStackView(arrangedSubviews: [
             statusLabel,
             selectButton,
@@ -67,6 +66,8 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
         ])
     }
 
+    // MARK: - Image Picker
+
     @objc private func selectImage() {
         let picker = UIImagePickerController()
         picker.delegate = self
@@ -78,7 +79,7 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
         picker.dismiss(animated: true)
 
         guard let image = info[.originalImage] as? UIImage else {
-            statusLabel.text = "Failed to load image."
+            updateStatus("Failed to load image.", state: .error)
             return
         }
 
@@ -87,13 +88,15 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
         verifyImage(image)
     }
 
+    // MARK: - Verification
+
     private func verifyImage(_ image: UIImage) {
-        statusLabel.text = "Verifying..."
+        updateStatus("Verifying...", state: .idle)
         mapView.isHidden = true
         mapView.removeAnnotations(mapView.annotations)
 
         guard let data = image.pngData() else {
-            statusLabel.text = "Failed to convert image."
+            updateStatus("Failed to convert image.", state: .error)
             return
         }
 
@@ -105,7 +108,7 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
                 let rawTime = message.components(separatedBy: " | ").first ?? message
                 let formatted = formatTimestamp(rawTime)
 
-                statusLabel.text = "Verified on \(formatted)"
+                updateStatus("Verified on \(formatted)", state: .success)
 
                 if let locRange = message.range(of: "Location: ") {
                     let coordsString = message[locRange.upperBound...].trimmingCharacters(in: .whitespaces)
@@ -126,8 +129,7 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
                 anotherButton.isHidden = false
 
             } catch {
-                statusLabel.text = error.localizedDescription
-                statusLabel.textColor = .systemRed
+                updateStatus(error.localizedDescription, state: .error)
                 anotherButton.isHidden = false
             }
         }
@@ -150,5 +152,24 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
         }
 
         return text
+    }
+
+    // MARK: - Status Handling
+
+    private enum VerificationState {
+        case idle, success, error
+    }
+
+    private func updateStatus(_ message: String, state: VerificationState) {
+        statusLabel.text = message
+
+        switch state {
+        case .idle:
+            statusLabel.textColor = .label
+        case .success:
+            statusLabel.textColor = .systemBlue
+        case .error:
+            statusLabel.textColor = .systemRed
+        }
     }
 }
