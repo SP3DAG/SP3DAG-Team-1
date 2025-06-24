@@ -126,7 +126,8 @@ class VerificationViewController: UIViewController, UIImagePickerControllerDeleg
                 anotherButton.isHidden = false
 
             } catch {
-                statusLabel.text = "API Error: \(error.localizedDescription)"
+                statusLabel.text = error.localizedDescription
+                statusLabel.textColor = .systemRed
                 anotherButton.isHidden = false
             }
         }

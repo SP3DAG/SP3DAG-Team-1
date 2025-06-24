@@ -3,6 +3,13 @@ import Foundation
 enum APIServiceError: Error, LocalizedError {
     case invalidURL
     case invalidResponse
+    case network(String)
+
+    // Semantic server feedback
+    case noQrFound
+    case inconsistentQr
+    case badSignature
+    case unsupportedFile
     case serverError(message: String)
 
     var errorDescription: String? {
@@ -11,6 +18,18 @@ enum APIServiceError: Error, LocalizedError {
             return "The API URL is invalid."
         case .invalidResponse:
             return "Received an invalid response from the server."
+        case .network(let msg):
+            return msg
+
+        // user-facing messages
+        case .noQrFound:
+            return "We couldn’t find a signed QR code in that image."
+        case .inconsistentQr:
+            return "Different QR copies in the image disagree. Please retake the photo."
+        case .badSignature:
+            return "The image’s QR signature is invalid — it may have been tampered with."
+        case .unsupportedFile:
+            return "That file isn’t a PNG or JPEG I can read."
         case .serverError(let message):
             return "Server error: \(message)"
         }
@@ -26,89 +45,90 @@ struct LinkTokenResponse: Decodable {
     let device_uuid: String
 }
 
+// For decoding error envelopes: { "detail": "..." }
+private struct APIErrorEnvelope: Decodable {
+    let detail: String
+}
+
 struct APIService {
 
-    // Request a new link token and device UUID
+    // Generate link token
     static func generateLinkToken() async throws -> LinkTokenResponse {
         guard let url = URL(string: "https://backend-dzm1.onrender.com/api/generate-link-token") else {
             throw APIServiceError.invalidURL
         }
 
-        let (data, response) = try await URLSession.shared.data(from: url)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw APIServiceError.invalidResponse
-        }
-
         do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse else {
+                throw APIServiceError.invalidResponse
+            }
+
+            guard http.statusCode == 200 else {
+                let detail = String(data: data, encoding: .utf8) ?? "Unknown error"
+                throw APIServiceError.serverError(message: detail)
+            }
+
             return try JSONDecoder().decode(LinkTokenResponse.self, from: data)
-        } catch {
-            let msg = String(data: data, encoding: .utf8) ?? "Malformed response"
-            throw APIServiceError.serverError(message: msg)
+
+        } catch let urlErr as URLError {
+            throw APIServiceError.network(urlErr.localizedDescription)
         }
     }
 
-    // Updated to store device UUID after upload
+    // Upload public key & complete link
     static func uploadLinkToken(token: String, publicKey: String) async throws -> Bool {
         guard let url = URL(string: "https://backend-dzm1.onrender.com/api/complete-link") else {
             throw APIServiceError.invalidURL
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
 
         let boundary = UUID().uuidString
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
-        body.append("--\(boundary)\r\n")
-        body.append("Content-Disposition: form-data; name=\"token\"\r\n\r\n")
-        body.append("\(token)\r\n")
-
-        body.append("--\(boundary)\r\n")
-        body.append("Content-Disposition: form-data; name=\"public_key\"\r\n\r\n")
-        body.append("\(publicKey)\r\n")
-
+        body.appendFormField(named: "token", value: token, using: boundary)
+        body.appendFormField(named: "public_key", value: publicKey, using: boundary)
         body.append("--\(boundary)--\r\n")
-        request.httpBody = body
+        req.httpBody = body
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            let msg = String(data: data, encoding: .utf8) ?? "Invalid response"
-            throw APIServiceError.serverError(message: msg)
-        }
-
-        if httpResponse.statusCode == 200 {
-            struct LinkResponse: Decodable {
-                let success: Bool
-                let device_uuid: String
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else {
+                throw APIServiceError.invalidResponse
             }
 
+            guard http.statusCode == 200 else {
+                let detail = String(data: data, encoding: .utf8) ?? "Unknown error"
+                throw APIServiceError.serverError(message: detail)
+            }
+
+            // success payload
+            struct LinkResponse: Decodable { let success: Bool; let device_uuid: String }
             let decoded = try JSONDecoder().decode(LinkResponse.self, from: data)
 
-            // Store in SessionManager
             SessionManager.shared.deviceID = decoded.device_uuid
             UserDefaults.standard.set(decoded.device_uuid, forKey: "deviceUUID")
-
             return decoded.success
-        } else {
-            let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw APIServiceError.serverError(message: msg)
+
+        } catch let urlErr as URLError {
+            throw APIServiceError.network(urlErr.localizedDescription)
         }
     }
 
+    // Verify image (multi-QR aware)
     static func verifyImage(imageData: Data) async throws -> VerificationResult {
         guard let url = URL(string: "https://backend-dzm1.onrender.com/verify-image/") else {
             throw APIServiceError.invalidURL
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
 
         let boundary = UUID().uuidString
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
         body.append("--\(boundary)\r\n")
@@ -117,29 +137,50 @@ struct APIService {
         body.append(imageData)
         body.append("\r\n")
         body.append("--\(boundary)--\r\n")
+        req.httpBody = body
 
-        request.httpBody = body
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else {
+                throw APIServiceError.invalidResponse
+            }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+            // - Success -
+            if (200..<300).contains(http.statusCode) {
+                return try JSONDecoder().decode(VerificationResult.self, from: data)
+            }
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIServiceError.invalidResponse
-        }
+            // - Error path -
+            let detail = (try? JSONDecoder().decode(APIErrorEnvelope.self, from: data))?.detail
+                         ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
 
-        if httpResponse.statusCode == 200 {
-            return try JSONDecoder().decode(VerificationResult.self, from: data)
-        } else {
-            let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw APIServiceError.serverError(message: msg)
+            switch detail {
+            case _ where detail.contains("No valid"):
+                throw APIServiceError.noQrFound
+            case _ where detail.contains("Inconsistent"):
+                throw APIServiceError.inconsistentQr
+            case _ where detail.contains("Signature"):
+                throw APIServiceError.badSignature
+            case _ where detail.contains("convert image"):
+                throw APIServiceError.unsupportedFile
+            default:
+                throw APIServiceError.serverError(message: detail)
+            }
+
+        } catch let urlErr as URLError {
+            throw APIServiceError.network(urlErr.localizedDescription)
         }
     }
 }
 
-// Utility for form-data
 private extension Data {
     mutating func append(_ string: String) {
-        if let data = string.data(using: .utf8) {
-            append(data)
-        }
+        if let d = string.data(using: .utf8) { append(d) }
+    }
+
+    mutating func appendFormField(named name: String, value: String, using boundary: String) {
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
+        append("\(value)\r\n")
     }
 }
