@@ -1,115 +1,126 @@
 import SwiftUI
 
 struct LinkDeviceView: View {
+    // External binding that other views can read
     @Binding var isLinked: Bool
-    @State private var showSuccess = false
-    @State private var errorMessage: String?
-    @State private var deviceUUID: String?
-    @State private var isLoading = false
 
+    // Local state
+    @State private var deviceUUID  : String?
+    @State private var isLoading   = false
+    @State private var errorMessage: String?
+
+    // MARK: – Body
     var body: some View {
         VStack {
             Spacer()
-
-            VStack(spacing: 24) {
-                Image(systemName: "link.circle.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 60, height: 60)
-                    .foregroundColor(.blue)
-
-                Text("GeoCam Device Linking")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .multilineTextAlignment(.center)
-
+            Group {
                 if let uuid = deviceUUID {
-                    VStack(spacing: 8) {
-                        Text("This device is linked to:")
-                            .font(.headline)
-                        Text(uuid)
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .multilineTextAlignment(.center)
-
-                        if showSuccess {
-                            HStack(spacing: 6) {
-                                Image(systemName: "checkmark.circle.fill")
-                                Text("Device linked successfully!")
-                            }
-                            .foregroundColor(.green)
-                            .font(.subheadline)
-                            .transition(.opacity)
-                        }
-                    }
+                    linkedContent(uuid: uuid)
+                } else if isLoading {
+                    loadingContent
                 } else {
-                    VStack(spacing: 12) {
-                        Text("Tap the button below to link this device to the GeoCam system.")
-                            .multilineTextAlignment(.center)
-                            .font(.body)
-
-                        Button(action: {
-                            Task {
-                                await linkDeviceAutomatically()
-                            }
-                        }) {
-                            Label("Link Device", systemImage: "link")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(isLoading ? Color.gray : Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                        }
-                        .disabled(isLoading)
-
-                        if let errorMessage = errorMessage {
-                            Text(errorMessage)
-                                .foregroundColor(.red)
-                                .font(.caption)
-                        }
-                    }
+                    errorContent
                 }
             }
             .padding()
+            .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(UIColor.secondarySystemBackground))
-                    .shadow(radius: 10)
+                    .fill(Color(uiColor: .secondarySystemBackground))
+                    .shadow(radius: 8)
             )
             .padding(.horizontal, 24)
 
             Spacer()
         }
-        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-        .onAppear {
-            deviceUUID = UserDefaults.standard.string(forKey: "deviceUUID")
-            isLinked = deviceUUID != nil
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+        .onAppear(perform: configure)
+        .animation(.default, value: deviceUUID)
+    }
+
+    // MARK: – Sub-views
+    private func linkedContent(uuid: String) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: "checkmark.seal.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 64, height: 64)
+                .foregroundColor(.green)
+
+            Text("Device registered")
+                .font(.largeTitle).fontWeight(.bold)
+
+            VStack(spacing: 6) {
+                Text("Device ID")
+                    .font(.headline)
+                Text(uuid)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
         }
     }
 
+    private var loadingContent: some View {
+        VStack(spacing: 24) {
+            ProgressView()
+                .scaleEffect(1.4)
+
+            Text("Registering device…")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    private var errorContent: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 48, height: 48)
+                .foregroundColor(.orange)
+
+            Text(errorMessage ?? "Registration failed")
+                .multilineTextAlignment(.center)
+                .font(.body)
+
+            Button("Try Again") {
+                Task { await linkDeviceAutomatically() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    // MARK: – Lifecycle helpers
+    private func configure() {
+        // If already stored, just show it
+        if let stored = UserDefaults.standard.string(forKey: "deviceUUID") {
+            deviceUUID = stored
+            isLinked   = true
+        } else {
+            // Otherwise kick off automatic registration
+            Task { await linkDeviceAutomatically() }
+        }
+    }
+
+    // MARK: – Networking
     private func linkDeviceAutomatically() async {
-        isLoading = true
-        errorMessage = nil
-        showSuccess = false
+        isLoading     = true
+        errorMessage  = nil
 
         do {
-            let linkInfo = try await APIService.generateLinkToken()
-            let token = linkInfo.token
-            let uuid = linkInfo.device_uuid
+            let linkInfo   = try await APIService.generateLinkToken()
+            let pem        = try KeyManager.getPublicKey().toPEM()
+            let uploaded   = try await APIService.uploadLinkToken(token: linkInfo.token,
+                                                                  publicKey: pem)
 
-            let pem = try KeyManager.getPublicKey().toPEM()
-            let success = try await APIService.uploadLinkToken(token: token, publicKey: pem)
+            guard uploaded else { throw URLError(.badServerResponse) }
 
-            if success {
-                UserDefaults.standard.set(uuid, forKey: "deviceUUID")
-                SessionManager.shared.deviceID = uuid
-                deviceUUID = uuid
-                isLinked = true
-                showSuccess = true
-            } else {
-                errorMessage = "Linking failed. Try again."
-            }
+            UserDefaults.standard.set(linkInfo.device_uuid, forKey: "deviceUUID")
+            SessionManager.shared.deviceID = linkInfo.device_uuid
+
+            deviceUUID = linkInfo.device_uuid
+            isLinked   = true
         } catch {
             errorMessage = error.localizedDescription
         }
