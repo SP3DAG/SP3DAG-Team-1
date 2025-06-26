@@ -148,7 +148,14 @@ class VerificationViewController: UIViewController,
                 let message   = result.decoded_message
                 let rawTime   = message.components(separatedBy: " | ").first ?? message
                 let formatted = formatTimestamp(rawTime)
-                updateStatus("Verified on \(formatted)", state: .success)
+                switch result.status {
+                case "verified":
+                    updateStatus("Verified on \(formatted)", state: .success)
+                case "verified_but_image_modified":
+                    updateStatus("Verified (but image was modified) on \(formatted)", state: .modified)
+                default:
+                    updateStatus("Verification failed (status: \(result.status))", state: .error)
+                }
 
                 // Pull out “Location: lat,lon” if present
                 if let locRange = message.range(of: "Location: ") {
@@ -210,7 +217,7 @@ class VerificationViewController: UIViewController,
 
     // MARK: – Status Handling
     private enum VerificationState {
-        case idle, success, error
+        case idle, success, error, modified
     }
 
     private func updateStatus(_ message: String, state: VerificationState) {
@@ -218,6 +225,7 @@ class VerificationViewController: UIViewController,
         switch state {
         case .idle:    statusLabel.textColor = .label
         case .success: statusLabel.textColor = .systemBlue
+        case .modified: statusLabel.textColor = .systemOrange
         case .error:   statusLabel.textColor = .systemRed
         }
     }

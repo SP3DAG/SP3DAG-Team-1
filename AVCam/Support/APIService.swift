@@ -38,6 +38,7 @@ enum APIServiceError: Error, LocalizedError {
 
 struct VerificationResult: Decodable {
     let decoded_message: String
+    let status: String
 }
 
 struct LinkTokenResponse: Decodable {
