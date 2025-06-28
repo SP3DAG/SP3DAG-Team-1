@@ -4,39 +4,50 @@ import CoreGraphics
 
 struct QRSteganography {
     
-    // MARK: – Public interface
     let blockSize: Int
     
-    /// Generates a fixed 47 × 47 binary matrix (UInt8 0/1) from plain text.
     func generateQRMatrix(from text: String) -> [[UInt8]] {
-        let data = text.data(using: .isoLatin1)!
-        let filter = CIFilter(name: "CIQRCodeGenerator")!
-        filter.setValue(data, forKey: "inputMessage")
-        filter.setValue("H", forKey: "inputCorrectionLevel")
         
-        guard let ci = filter.outputImage else { return [[]] }
-        let scale = floor(47.0 / ci.extent.width)
-        let scaled = ci.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        let desiredSide = 51
+        var payload = text
         
-        let ctx = CIContext()
-        guard let cg = ctx.createCGImage(scaled, from: scaled.extent),
-              cg.width == 47, cg.height == 47 else { return [[]] }
-        
-        var gray = [UInt8](repeating: 0, count: 47*47)
-        let gctx = CGContext(data: &gray,
-                             width: 47, height: 47,
-                             bitsPerComponent: 8, bytesPerRow: 47,
-                             space: CGColorSpaceCreateDeviceGray(),
-                             bitmapInfo: 0)!
-        gctx.draw(cg, in: CGRect(x: 0, y: 0, width: 47, height: 47))
-        
-        var result = [[UInt8]](repeating: [UInt8](repeating: 0, count: 47), count: 47)
-        for y in 0..<47 {
-            for x in 0..<47 {
-                result[y][x] = gray[y * 47 + x] < 128 ? 1 : 0
+        while true {
+            
+            // make the QR with CoreImage
+            let data = payload.data(using: .isoLatin1)!
+            let filter = CIFilter(name: "CIQRCodeGenerator")!
+            filter.setValue(data, forKey: "inputMessage")
+            filter.setValue("H",  forKey: "inputCorrectionLevel")
+            
+            guard let ci = filter.outputImage else { return [[]] }
+            
+            // No scaling
+            let ctx = CIContext(options: [.outputPremultiplied: false])
+            guard let cg = ctx.createCGImage(ci, from: ci.extent) else { return [[]] }
+            
+            let side = cg.width
+            
+            if side == desiredSide {
+                var gray = [UInt8](repeating: 0, count: side * side)
+                let gctx = CGContext(data: &gray,
+                                     width: side, height: side,
+                                     bitsPerComponent: 8, bytesPerRow: side,
+                                     space: CGColorSpaceCreateDeviceGray(),
+                                     bitmapInfo: 0)!
+                gctx.draw(cg, in: CGRect(x: 0, y: 0, width: side, height: side))
+                
+                return (0..<side).map { y in
+                    (0..<side).map { x in gray[y * side + x] < 128 ? 1 : 0 }
+                }
             }
+            
+            if side > desiredSide {
+                fatalError("Payload too large – CIQRCodeGenerator chose side \(side) > \(desiredSide)")
+            }
+            
+            // side < desiredSide  → pad and retry
+            payload += "#"
         }
-        return result
     }
     
     /// Flattens a 2-D QR matrix row-wise to `Data` (1 byte per bit).
@@ -56,14 +67,12 @@ struct QRSteganography {
                                        qrTexts: [String],
                                        deviceID: String,
                                        spacing: Double = 20.0) -> UIImage? {
-        
-        // Carrier image buffer
         guard let cgImage = image.cgImage else { return nil }
-        let width  = cgImage.width
+        let width = cgImage.width
         let height = cgImage.height
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let bytesPerPixel = 4
-        let bytesPerRow   = width * bytesPerPixel
+        let bytesPerRow = width * bytesPerPixel
         
         var pixelData = [UInt8](repeating: 0, count: height * bytesPerRow)
         let ctx = CGContext(data: &pixelData,
@@ -73,49 +82,39 @@ struct QRSteganography {
                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
         
-        // Convenience helpers
-        func bits8 (_ v: UInt8 ) -> [UInt8] { (0..<8) .map { UInt8((v >> (7-$0)) & 1) } }
+        func bits8(_ v: UInt8) -> [UInt8] { (0..<8).map { UInt8((v >> (7-$0)) & 1) } }
         func bits16(_ v: UInt16) -> [UInt8] { (0..<16).map { UInt8((v >> (15-$0)) & 1) } }
         
         let deviceIDBytes = [UInt8](deviceID.utf8)
-        let devIDLenBits  = bits8(UInt8(deviceIDBytes.count))
-        let devIDBits     = deviceIDBytes.flatMap { bits8($0) }
+        let devIDLenBits = bits8(UInt8(deviceIDBytes.count))
+        let devIDBits = deviceIDBytes.flatMap { bits8($0) }
         
-        // Determine QR pixel dimensions
         guard let firstMatrix = qrTexts.first.flatMap(generateQRMatrix),
               !firstMatrix.isEmpty else { return nil }
         
-        let qrMod   = firstMatrix.count
-        let qrPix   = qrMod * blockSize
-        let spacer  = 1
+        let qrMod = firstMatrix.count
+        let qrPix = qrMod * blockSize
+        let spacer = 1
         
-        // To estimate the metadata height we need the signature length.
-        // ECDSA P-256 r||s is 64 bytes, wrapped in DER (~72 bytes).  We conservatively
-        // assume 80 bytes → 80*8 = 640 bits  ➜ 640 / qrPix rows.
         let worstSigBits = 640
-        let worstFullBits = devIDLenBits.count + devIDBits.count +
-        16 + 16 + 8 + worstSigBits            // totalTiles+index+sig
-        let worstSigRows  = Int(ceil(Double(worstFullBits) / Double(qrPix)))
-        let tileHeight    = qrPix + spacer + worstSigRows        // pixel rows per tile
-        let tileWidth     = qrPix                                // pixel cols per tile
+        let worstFullBits = devIDLenBits.count + devIDBits.count + 16 + 16 + 8 + worstSigBits
+        let worstSigRows = Int(ceil(Double(worstFullBits) / Double(qrPix)))
+        let tileHeight = qrPix + spacer + worstSigRows
+        let tileWidth = qrPix
         
-        // How many tiles fit?
-        let tilesPerRow = Int( floor((Double(width)  + spacing) /
-                                     (Double(tileWidth) + spacing)) )
-        let tilesPerCol = Int( floor((Double(height) + spacing) /
-                                     (Double(tileHeight) + spacing)) )
+        let tilesPerRow = Int(floor((Double(width) + spacing) / (Double(tileWidth) + spacing)))
+        let tilesPerCol = Int(floor((Double(height) + spacing) / (Double(tileHeight) + spacing)))
         
         guard tilesPerRow > 0, tilesPerCol > 0 else { return nil }
         
         let totalTiles = UInt16(tilesPerRow * tilesPerCol * qrTexts.count)
         let totalBits16 = bits16(totalTiles)
         
-        // Start tiling
         var globalIndex: UInt16 = 0
         
         for text in qrTexts {
             let qrMatrix = generateQRMatrix(from: text)
-            guard !qrMatrix.isEmpty else { continue }
+            guard !qrMatrix.isEmpty else { fatalError("QR generation failed") }
             let flattened = flattenQRMatrix(qrMatrix)
             
             for row in 0..<tilesPerCol {
@@ -124,29 +123,22 @@ struct QRSteganography {
                 for col in 0..<tilesPerRow {
                     let offsetX = Int(round(Double(col) * (Double(tileWidth) + spacing)))
                     
-                    // Metadata unique to this tile
-                    let idx      = globalIndex;  globalIndex += 1
-                    let idxBits  = bits16(idx)
+                    let idx = globalIndex; globalIndex += 1
+                    let idxBits = bits16(idx)
                     
-                    // Signature input = bitmap || deviceID || totalTiles || qr_index
                     var sigInput = Data(flattened)
                     sigInput.append(deviceIDBytes, count: deviceIDBytes.count)
                     sigInput.append(contentsOf: withUnsafeBytes(of: totalTiles.bigEndian, Array.init))
-                    sigInput.append(contentsOf: withUnsafeBytes(of: idx.bigEndian,        Array.init))
+                    sigInput.append(contentsOf: withUnsafeBytes(of: idx.bigEndian, Array.init))
                     
                     guard let signature = try? KeyManager.sign(data: sigInput) else { continue }
                     let sigLen = UInt8(signature.count)
                     let sigLenBits = bits8(sigLen)
-                    let sigBits    = signature.flatMap(bits8)
+                    let sigBits = signature.flatMap(bits8)
                     
-                    let fullBits = devIDLenBits + devIDBits +
-                    totalBits16   + idxBits +
-                    sigLenBits    + sigBits
-                    
-                    // Actual rows for this tile (may be less than worst-case)
+                    let fullBits = devIDLenBits + devIDBits + totalBits16 + idxBits + sigLenBits + sigBits
                     let sigRows = Int(ceil(Double(fullBits.count) / Double(qrPix)))
                     
-                    // Embed QR bitmap
                     for y in 0..<qrMod {
                         for x in 0..<qrMod {
                             let bit = qrMatrix[y][x]
@@ -154,14 +146,13 @@ struct QRSteganography {
                                 for dx in 0..<blockSize {
                                     let px = offsetX + x*blockSize + dx
                                     let py = offsetY + y*blockSize + dy
-                                    let idx = py*bytesPerRow + px*bytesPerPixel
-                                    pixelData[idx+2] = (pixelData[idx+2] & 0xFE) | UInt8(bit)
+                                    let i = py*bytesPerRow + px*bytesPerPixel
+                                    pixelData[i+2] = (pixelData[i+2] & 0xFE) | UInt8(bit)
                                 }
                             }
                         }
                     }
                     
-                    // Embed metadata bits
                     var bitPtr = 0
                     let metaStartY = offsetY + qrPix + spacer
                     for py in 0..<sigRows {
@@ -169,8 +160,8 @@ struct QRSteganography {
                             guard bitPtr < fullBits.count else { break }
                             let x = offsetX + px
                             let y = metaStartY + py
-                            let idx = y*bytesPerRow + x*bytesPerPixel
-                            pixelData[idx+2] = (pixelData[idx+2] & 0xFE) | fullBits[bitPtr]
+                            let i = y*bytesPerRow + x*bytesPerPixel
+                            pixelData[i+2] = (pixelData[i+2] & 0xFE) | fullBits[bitPtr]
                             bitPtr += 1
                         }
                     }
@@ -178,14 +169,11 @@ struct QRSteganography {
             }
         }
         
-        // Produce UIImage
         guard let newCG = CGContext(data: &pixelData,
                                     width: width, height: height,
                                     bitsPerComponent: 8, bytesPerRow: bytesPerRow,
                                     space: colorSpace,
-                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-            .makeImage()
-        else { return nil }
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!.makeImage() else { return nil }
         
         return UIImage(cgImage: newCG)
     }

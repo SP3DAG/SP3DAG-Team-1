@@ -22,14 +22,12 @@ class VerificationViewController: UIViewController,
             padding: 0
         )
         indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.isHidden = true          // start hidden until we need it
+        indicator.isHidden = true
         return indicator
     }()
 
-    // We’ll group the label and the indicator horizontally
     private var statusStack: UIStackView!
     private var mainStack  : UIStackView!
-
     private var selectedImage: UIImage?
 
     // MARK: – View lifecycle
@@ -42,37 +40,31 @@ class VerificationViewController: UIViewController,
 
     // MARK: – UI setup
     private func setupUI() {
-        // Status label
         statusLabel.text = "Please select an image to verify."
         statusLabel.font = .systemFont(ofSize: 16)
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 0
 
-        // Label + dots horizontally
         statusStack = UIStackView(arrangedSubviews: [statusLabel, pulseIndicator])
         statusStack.axis = .horizontal
         statusStack.spacing = 8
         statusStack.alignment = .center
 
-        // Select button
         selectButton.setTitle("Select Image", for: .normal)
         selectButton.titleLabel?.font = .systemFont(ofSize: 18)
         selectButton.addTarget(self, action: #selector(selectImage), for: .touchUpInside)
 
-        // Another-image button (hidden until first verify completes)
         anotherButton.setTitle("Select Another Image", for: .normal)
         anotherButton.titleLabel?.font = .systemFont(ofSize: 18)
         anotherButton.addTarget(self, action: #selector(selectImage), for: .touchUpInside)
         anotherButton.isHidden = true
 
-        // MapView for geo tag
         mapView.translatesAutoresizingMaskIntoConstraints = false
         mapView.layer.cornerRadius = 10
         mapView.layer.borderColor = UIColor.lightGray.cgColor
         mapView.layer.borderWidth  = 1
         mapView.isHidden = true
 
-        // Vertical stack
         mainStack = UIStackView(arrangedSubviews: [
             statusStack,
             selectButton,
@@ -91,11 +83,8 @@ class VerificationViewController: UIViewController,
             mainStack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             mainStack.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 20),
             mainStack.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
-
-            // keep the indicator square
             pulseIndicator.widthAnchor.constraint(equalToConstant: 24),
             pulseIndicator.heightAnchor.constraint(equalTo: pulseIndicator.widthAnchor),
-
             mapView.widthAnchor .constraint(equalToConstant: 300),
             mapView.heightAnchor.constraint(equalToConstant: 200)
         ])
@@ -124,12 +113,10 @@ class VerificationViewController: UIViewController,
     }
 
     // MARK: – Verification
-
     private func verifyImage(_ image: UIImage) {
         updateStatus("Verifying", state: .idle)
         setVerifying(true)
 
-        // reset map
         mapView.isHidden = true
         mapView.removeAnnotations(mapView.annotations)
 
@@ -144,9 +131,10 @@ class VerificationViewController: UIViewController,
                 let result = try await APIService.verifyImage(imageData: data)
                 setVerifying(false)
 
-                // Parse the API’s decoded_message
-                let message   = result.decoded_message
-                let rawTime   = message.components(separatedBy: " | ").first ?? message
+                let message = result.decoded_message
+                print("Verification decoded message →", message)
+
+                let rawTime = message.components(separatedBy: " | ").first ?? message
                 let formatted = formatTimestamp(rawTime)
                 switch result.status {
                 case "verified":
@@ -158,25 +146,18 @@ class VerificationViewController: UIViewController,
                 }
 
                 // Pull out “Location: lat,lon” if present
-                if let locRange = message.range(of: "Location: ") {
-                    let coordsString = message[locRange.upperBound...].trimmingCharacters(in: .whitespaces)
-                    let parts = coordsString.split(separator: ",")
-                    if parts.count == 2,
-                       let lat = Double(parts[0].trimmingCharacters(in: .whitespaces)),
-                       let lon = Double(parts[1].trimmingCharacters(in: .whitespaces)) {
-                        let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-                        let annotation = MKPointAnnotation()
-                        annotation.coordinate = coordinate
-                        annotation.title = "Captured Location"
-                        mapView.addAnnotation(annotation)
-                        mapView.setRegion(
-                            MKCoordinateRegion(center: coordinate,
-                                               latitudinalMeters: 500,
-                                               longitudinalMeters: 500),
-                            animated: true
-                        )
-                        mapView.isHidden = false
-                    }
+                if let coord = extractCoordinates(from: message) {
+                    let annotation = MKPointAnnotation()
+                    annotation.coordinate = coord
+                    annotation.title = "Captured Location"
+                    mapView.addAnnotation(annotation)
+                    mapView.setRegion(
+                        MKCoordinateRegion(center: coord,
+                                           latitudinalMeters: 500,
+                                           longitudinalMeters: 500),
+                        animated: true
+                    )
+                    mapView.isHidden = false
                 }
 
                 anotherButton.isHidden = false
@@ -187,6 +168,17 @@ class VerificationViewController: UIViewController,
                 anotherButton.isHidden = false
             }
         }
+    }
+
+    private func extractCoordinates(from text: String) -> CLLocationCoordinate2D? {
+        let pattern = #"Location:\s*([-+]?\d+(?:\.\d+)?)\s*,\s*([-+]?\d+(?:\.\d+)?).*"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let m = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let latR = Range(m.range(at: 1), in: text),
+              let lonR = Range(m.range(at: 2), in: text),
+              let lat = Double(text[latR]),
+              let lon = Double(text[lonR]) else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
 
     // Helper: show / hide the three-dot animation

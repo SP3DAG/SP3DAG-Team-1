@@ -142,6 +142,7 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
             let lon = String(format: "%.5f", location.coordinate.longitude)
             hiddenMessage += " | Location: \(lat), \(lon)"
         }
+        print("Hidden message to embed:", hiddenMessage)
 
         let finalData: Data
         if let deviceID = SessionManager.shared.deviceID {
