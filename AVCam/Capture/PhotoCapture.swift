@@ -116,56 +116,54 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
         photoData = photo.fileDataRepresentation()
     }
 
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
-        defer {
-            activityContinuation.finish()
-        }
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
+                     error: Error?) {
+        defer { activityContinuation.finish() }
 
-        if let error {
-            continuation.resume(throwing: error)
-            return
-        }
+        if let error { continuation.resume(throwing: error); return }
 
-        guard let originalData = photoData, let image = UIImage(data: originalData) else {
+        guard let originalData = photoData,
+              let image = UIImage(data: originalData) else {
             continuation.resume(throwing: PhotoCaptureError.noPhotoData)
             return
         }
 
-        // Embed hidden message before saving
+        // Build a human-readable note (not embedded in the QR any more,
+        // but handy for logging or EXIF if you wish to add it later).
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZ"
-        formatter.timeZone = .current  // <- Use device's local time zone
-        let localTimeString = formatter.string(from: Date())
-        var hiddenMessage = "Captured at: \(localTimeString)"
-        if let location = location {
-            let lat = String(format: "%.5f", location.coordinate.latitude)
-            let lon = String(format: "%.5f", location.coordinate.longitude)
-            hiddenMessage += " | Location: \(lat), \(lon)"
-        }
-        print("Hidden message to embed:", hiddenMessage)
+        let localStamp = formatter.string(from: Date())
 
+        var logLine = "Captured at: \(localStamp)"
+        if let loc = location {
+            logLine += String(format: " | Location: %.5f, %.5f",
+                              loc.coordinate.latitude, loc.coordinate.longitude)
+        }
+        print("Local capture info:", logLine)
+
+        // Steganography
         let finalData: Data
         if let deviceID = SessionManager.shared.deviceID {
-            print("Device ID found: \(deviceID)")
-            if let stegoImage = embedQRInBlueLSB(message: hiddenMessage, into: image, deviceID: deviceID),
-               let stegoData = stegoImage.pngData() {
-                print("Embedding succeeded")
-                finalData = stegoData
+            if let stegoImage = embedQRInBlueLSB(into: image,
+                                                 deviceID: deviceID,
+                                                 message:  logLine) {
+                finalData = stegoImage.pngData() ?? originalData
             } else {
-                print("Embedding failed, falling back to original")
                 finalData = originalData
             }
         } else {
-            print("No device ID found, falling back to original")
             finalData = originalData
         }
 
-        let photo = Photo(data: finalData, isProxy: isProxyPhoto)
-        continuation.resume(returning: photo)
+        continuation.resume(returning: Photo(data: finalData, isProxy: isProxyPhoto))
     }
 }
 
-private func embedQRInBlueLSB(message: String, into image: UIImage, deviceID: String) -> UIImage? {
-    let stego = QRSteganography(blockSize: 8)
-    return stego.embedMultipleQRsInBlueChannel(image: image, qrTexts: [message], deviceID: deviceID)
+private func embedQRInBlueLSB(into image: UIImage,
+                              deviceID: String,
+                              message:  String) -> UIImage? {
+    QRSteganography().embedTiledQR(in: image,
+                                   deviceID: deviceID,
+                                   message:  message)
 }
