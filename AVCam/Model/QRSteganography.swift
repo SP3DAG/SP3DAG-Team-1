@@ -5,140 +5,146 @@ import CryptoKit
 
 struct QRSteganography {
 
-    /// Fixed-size modules (each module is an 8×8 px square).
     let blockSize = 8
-
-    /// Hard-coded QR version: 125 modules
     let modules = 125
 
-    /// Embeds fully self-contained, signed QR codes per tile into blue-channel LSBs.
     func embedTiledQR(in image: UIImage,
                       deviceID: String,
-                      message:  String) -> UIImage? {
+                      message: String) -> UIImage? {
 
-        guard let cg = image.cgImage else { return nil }
-        let W = cg.width, H = cg.height
-        let BPP = 4, BPR = W * BPP
-        var pixels = [UInt8](repeating: 0, count: H * BPR)
-        let cs = CGColorSpaceCreateDeviceRGB()
+        guard let cgImage = image.cgImage else { return nil }
 
-        guard let ctx = CGContext(data: &pixels,
-                                  width: W, height: H,
-                                  bitsPerComponent: 8, bytesPerRow: BPR,
-                                  space: cs,
-                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        let width = cgImage.width, height = cgImage.height
+        let bytesPerPixel = 4, bytesPerRow = width * bytesPerPixel
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+
+        var pixelBuffer = [UInt8](repeating: 0, count: height * bytesPerRow)
+
+        guard let context = CGContext(data: &pixelBuffer,
+                                      width: width,
+                                      height: height,
+                                      bitsPerComponent: 8,
+                                      bytesPerRow: bytesPerRow,
+                                      space: colorSpace,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         else { return nil }
 
-        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: W, height: H))
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-        // Hard-coded tile geometry based on confirmed QR config
-        let qrPix  = modules * blockSize
-        let tilesX = W / qrPix
-        let tilesY = H / qrPix
+        let qrPixelSize = modules * blockSize
+        let tilesX = width / qrPixelSize
+        let tilesY = height / qrPixelSize
 
-        print("Using QR with \(modules) modules (blockSize: \(blockSize)), grid \(tilesX)x\(tilesY)")
+        print("Using QR with \(modules)x\(modules) modules (blockSize: \(blockSize)), grid \(tilesX)x\(tilesY)")
 
-        // Tile loop
-        for ty in 0..<tilesY {
-            for tx in 0..<tilesX {
-                let x0 = tx * qrPix
-                let y0 = ty * qrPix
+        let totalTiles = tilesX * tilesY
 
-                // 1. Compute SHA-256 of upper 7 bits of all RGB pixels in tile
-                var hasher = SHA256()
-                for dy in 0..<qrPix {
-                    let py = y0 + dy
-                    for dx in 0..<qrPix {
-                        let px = x0 + dx
-                        let i = py * BPR + px * BPP
-                        for c in 0..<3 {
-                            hasher.update(data: [pixels[i + c] & 0xFE])
-                        }
-                    }
+        let qrContext = CIContext()
+        let qrFilter = CIFilter(name: "CIQRCodeGenerator")!
+
+        // Lock for thread-safe pixel access
+        let pixelLock = NSLock()
+
+        DispatchQueue.concurrentPerform(iterations: totalTiles) { index in
+            let tx = index % tilesX
+            let ty = index / tilesX
+
+            let x0 = tx * qrPixelSize
+            let y0 = ty * qrPixelSize
+
+            // 1. Batch hash upper 7 bits of RGB
+            var hashInput = [UInt8]()
+            for dy in 0..<qrPixelSize {
+                let py = y0 + dy
+                for dx in 0..<qrPixelSize {
+                    let px = x0 + dx
+                    let i = py * bytesPerRow + px * bytesPerPixel
+                    hashInput.append(pixelBuffer[i]     & 0xFE)
+                    hashInput.append(pixelBuffer[i + 1] & 0xFE)
+                    hashInput.append(pixelBuffer[i + 2] & 0xFE)
                 }
-                let hashHex = hasher.finalize()
-                                    .map { String(format: "%02x", $0) }
-                                    .joined()
-                
-                // 2. Build and sign payload
-                var payload: [String: Any] = [
-                    "device_id": deviceID,
-                    "tile_id":   ty * tilesX + tx,
-                    "tile_count": tilesX * tilesY,
-                    "hash":     hashHex,
-                    "message":  message
-                ]
+            }
 
-                let jsonToSign = try! JSONSerialization.data(withJSONObject: payload,
-                                                             options: [.sortedKeys])
-                let signature  = try! KeyManager.sign(data: jsonToSign)
-                payload["sig"] = signature.map { String(format: "%02x", $0) }.joined()
+            let hashHex = SHA256.hash(data: hashInput)
+                                .map { String(format: "%02x", $0) }
+                                .joined()
 
-                // 3. Encode payload into QR matrix
-                let fullJSON = try! JSONSerialization.data(withJSONObject: payload)
-                guard let qrMatrix = generateQRMatrix(from: fullJSON, modules: modules) else {
-                    print("QR generation failed at tile (\(tx),\(ty))")
-                    continue
-                }
+            // 2. Build and sign payload
+            var payload: [String: Any] = [
+                "device_id": deviceID,
+                "tile_id": ty * tilesX + tx,
+                "tile_count": tilesX * tilesY,
+                "hash": hashHex,
+                "message": message
+            ]
 
-                // 4. Embed QR into blue channel LSBs (centered inside tile)
-                for my in 0..<modules {
-                    for mx in 0..<modules {
-                        let bit = qrMatrix[my][mx]
-                        for dy in 0..<blockSize {
-                            for dx in 0..<blockSize {
-                                let px = x0 + mx * blockSize + dx
-                                let py = y0 + my * blockSize + dy
-                                let i  = py * BPR + px * BPP
-                                pixels[i + 2] = (pixels[i + 2] & 0xFE) | bit
-                            }
+            let jsonToSign = try! JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+            let signature = try! KeyManager.sign(data: jsonToSign)
+            payload["sig"] = signature.map { String(format: "%02x", $0) }.joined()
+
+            let fullJSON = try! JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+
+            // 3. Generate QR matrix once
+            guard let qrMatrix = generateQRMatrix(from: fullJSON,
+                                                  modules: modules,
+                                                  qrFilter: qrFilter,
+                                                  qrContext: qrContext)
+            else {
+                print("QR generation failed at tile (\(tx), \(ty))")
+                return
+            }
+
+            // 4. Embed into blue-channel LSBs
+            for my in 0..<modules {
+                for mx in 0..<modules {
+                    let bit = qrMatrix[my][mx]
+                    for dy in 0..<blockSize {
+                        for dx in 0..<blockSize {
+                            let px = x0 + mx * blockSize + dx
+                            let py = y0 + my * blockSize + dy
+                            let i = py * bytesPerRow + px * bytesPerPixel
+                            pixelLock.lock()
+                            pixelBuffer[i + 2] = (pixelBuffer[i + 2] & 0xFE) | bit
+                            pixelLock.unlock()
                         }
                     }
                 }
             }
         }
 
-        // Return new image
-        guard let outCG = CGContext(data: &pixels,
-                                    width: W, height: H,
-                                    bitsPerComponent: 8, bytesPerRow: BPR,
-                                    space: cs,
-                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)?
-                            .makeImage()
-        else { return nil }
-
-        return UIImage(cgImage: outCG)
+        guard let outputCGImage = context.makeImage() else { return nil }
+        return UIImage(cgImage: outputCGImage)
     }
 
-    /// Generates a QR matrix with a specific module count.
     private func generateQRMatrix(from data: Data,
-                                  modules: Int) -> [[UInt8]]? {
+                                  modules: Int,
+                                  qrFilter: CIFilter,
+                                  qrContext: CIContext) -> [[UInt8]]? {
 
-        let filter = CIFilter(name: "CIQRCodeGenerator")!
-        filter.setValue(data, forKey: "inputMessage")
-        filter.setValue("H", forKey: "inputCorrectionLevel")
+        qrFilter.setValue(data, forKey: "inputMessage")
+        qrFilter.setValue("H", forKey: "inputCorrectionLevel")
 
-        guard let ci = filter.outputImage else { return nil }
+        guard let ciImage = qrFilter.outputImage else { return nil }
 
-        // Scale to exactly match desired module size
-        let scale      = CGFloat(modules) / ci.extent.width
-        let transformed = ci.transformed(by: .init(scaleX: scale, y: scale))
+        let scale = CGFloat(modules) / ciImage.extent.width
+        let transformed = ciImage.transformed(by: .init(scaleX: scale, y: scale))
 
-        let ctx = CIContext()
-        guard let cg = ctx.createCGImage(transformed, from: transformed.extent) else { return nil }
+        guard let cgImage = qrContext.createCGImage(transformed, from: transformed.extent) else { return nil }
 
-        var gray = [UInt8](repeating: 0, count: modules * modules)
-        let gctx = CGContext(data: &gray,
-                             width: modules, height: modules,
-                             bitsPerComponent: 8, bytesPerRow: modules,
-                             space: CGColorSpaceCreateDeviceGray(),
-                             bitmapInfo: 0)!
-        gctx.draw(cg, in: CGRect(x: 0, y: 0,
-                                 width: modules, height: modules))
+        var grayBuffer = [UInt8](repeating: 0, count: modules * modules)
+        let grayContext = CGContext(data: &grayBuffer,
+                                    width: modules,
+                                    height: modules,
+                                    bitsPerComponent: 8,
+                                    bytesPerRow: modules,
+                                    space: CGColorSpaceCreateDeviceGray(),
+                                    bitmapInfo: 0)!
+
+        grayContext.draw(cgImage, in: CGRect(x: 0, y: 0, width: modules, height: modules))
 
         return (0..<modules).map { y in
             (0..<modules).map { x in
-                gray[y * modules + x] < 128 ? 1 : 0
+                grayBuffer[y * modules + x] < 128 ? 1 : 0
             }
         }
     }

@@ -24,7 +24,7 @@ struct InfoView: View {
                     Text("For more information about the app, please visit:")
                         .padding(.top)
                     
-                    Link("example.com", destination: URL(string: "https://example.com")!)
+                    Link("GitHub", destination: URL(string: "https://github.com/SP3DAG")!)
                         .foregroundColor(.blue)
                         .underline()
                 }
