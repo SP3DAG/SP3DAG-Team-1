@@ -52,10 +52,15 @@ private struct APIErrorEnvelope: Decodable {
 }
 
 struct APIService {
-
+    
+    static var baseURL: String {
+            
+            return "http://192.168.178.42:10000" // ONLY CHANGE IP ADDRESS, NO NEED TO CHANGE PORT
+        }
+    
     // Generate link token
     static func generateLinkToken() async throws -> LinkTokenResponse {
-        guard let url = URL(string: "http://192.168.178.42:10000/api/generate-link-token") else {
+        guard let url = URL(string: "\(baseURL)/api/generate-link-token") else {
             throw APIServiceError.invalidURL
         }
 
@@ -79,7 +84,7 @@ struct APIService {
 
     // Upload public key & complete link
     static func uploadLinkToken(token: String, publicKey: String) async throws -> Bool {
-        guard let url = URL(string: "http://192.168.178.42:10000/api/complete-link") else {
+        guard let url = URL(string: "\(baseURL)/api/complete-link") else {
             throw APIServiceError.invalidURL
         }
 
@@ -121,7 +126,7 @@ struct APIService {
 
     // Verify image (multi-QR aware)
     static func verifyImage(imageData: Data) async throws -> VerificationResult {
-        guard let url = URL(string: "http://192.168.178.42:10000/verify-image/") else {
+        guard let url = URL(string: "\(baseURL)/verify-image/") else {
             throw APIServiceError.invalidURL
         }
 
