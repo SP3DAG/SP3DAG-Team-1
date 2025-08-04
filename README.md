@@ -34,7 +34,7 @@ Below is an overview of the main directories and their responsibilities:
 
 - **Views/**  
   The SwiftUI-based user interface. Includes:
-  - `CameraUI.swift` and `CameraPreview.swift` for live camera interaction.
+  - `CameraUI.swift` and `CameraPreview.swift` for camera interaction.
   - `VerificationViewController.swift` and related files for image verification.
   - `Toolbars/` and `Overlays/` for user controls and real-time visual feedback.
 
