@@ -78,6 +78,7 @@
 		22165BFD2DF319D200F5427B /* QRSteganography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRSteganography.swift; sourceTree = "<group>"; };
 		223179402E07EE94002CCDC2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		226595922DF31BFE0011CC23 /* GlobalWarpMorphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalWarpMorphView.swift; sourceTree = "<group>"; };
+		22B654512E2553F500AAFBE6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		22DBC07F2DF5E76600928B95 /* KeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyManager.swift; sourceTree = "<group>"; };
 		22DBC0902DF61CA400928B95 /* LinkDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkDeviceView.swift; sourceTree = "<group>"; };
 		22DBC0932DF61E4100928B95 /* APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIService.swift; sourceTree = "<group>"; };
@@ -275,6 +276,7 @@
 		C4F82C9B285ADDA2005D427A /* AVCam */ = {
 			isa = PBXGroup;
 			children = (
+				22B654512E2553F500AAFBE6 /* Info.plist */,
 				C4F82C9C285ADDA2005D427A /* AVCamApp.swift */,
 				C48091832BD584AD00753C4A /* CameraModel.swift */,
 				C4F82CCB285AE206005D427A /* CaptureService.swift */,
@@ -567,6 +569,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AVCam/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = GeoCam;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSCameraUsageDescription = "To capture photos and videos.";
@@ -617,6 +620,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AVCam/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = GeoCam;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSCameraUsageDescription = "To capture photos and videos.";
