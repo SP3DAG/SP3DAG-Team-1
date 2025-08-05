@@ -55,7 +55,7 @@ struct APIService {
     
     static var baseURL: String {
             
-            return "http://192.168.178.42:10000" // ONLY CHANGE IP ADDRESS, NO NEED TO CHANGE PORT
+            return "http://192.168.43.135:10000" // ONLY CHANGE IP ADDRESS, NO NEED TO CHANGE PORT
         }
     
     // Generate link token

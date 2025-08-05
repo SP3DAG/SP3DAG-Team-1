@@ -34,47 +34,34 @@ struct QRSteganography {
         let qrPixelSize = modules * blockSize
         let tilesX = width / qrPixelSize
         let tilesY = height / qrPixelSize
-
-        print("Using QR with \(modules)x\(modules) modules (blockSize: \(blockSize)), grid \(tilesX)x\(tilesY)")
-
         let totalTiles = tilesX * tilesY
+
+        var fullHashInput = [UInt8]()
+        for i in stride(from: 0, to: pixelBuffer.count, by: 4) {
+            fullHashInput.append(pixelBuffer[i]     & 0xFE)
+            fullHashInput.append(pixelBuffer[i + 1] & 0xFE)
+            fullHashInput.append(pixelBuffer[i + 2] & 0xFE)
+        }
+
+        let imageHashHex = SHA256.hash(data: fullHashInput)
+            .map { String(format: "%02x", $0) }
+            .joined()
 
         let qrContext = CIContext()
         let qrFilter = CIFilter(name: "CIQRCodeGenerator")!
-
-        // Lock for thread-safe pixel access
         let pixelLock = NSLock()
 
         DispatchQueue.concurrentPerform(iterations: totalTiles) { index in
             let tx = index % tilesX
             let ty = index / tilesX
-
             let x0 = tx * qrPixelSize
             let y0 = ty * qrPixelSize
 
-            // 1. Batch hash upper 7 bits of RGB
-            var hashInput = [UInt8]()
-            for dy in 0..<qrPixelSize {
-                let py = y0 + dy
-                for dx in 0..<qrPixelSize {
-                    let px = x0 + dx
-                    let i = py * bytesPerRow + px * bytesPerPixel
-                    hashInput.append(pixelBuffer[i]     & 0xFE)
-                    hashInput.append(pixelBuffer[i + 1] & 0xFE)
-                    hashInput.append(pixelBuffer[i + 2] & 0xFE)
-                }
-            }
-
-            let hashHex = SHA256.hash(data: hashInput)
-                                .map { String(format: "%02x", $0) }
-                                .joined()
-
-            // 2. Build and sign payload
             var payload: [String: Any] = [
                 "device_id": deviceID,
                 "tile_id": ty * tilesX + tx,
-                "tile_count": tilesX * tilesY,
-                "hash": hashHex,
+                "tile_count": totalTiles,
+                "image_hash": imageHashHex,
                 "message": message
             ]
 
@@ -84,17 +71,14 @@ struct QRSteganography {
 
             let fullJSON = try! JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
 
-            // 3. Generate QR matrix once
             guard let qrMatrix = generateQRMatrix(from: fullJSON,
                                                   modules: modules,
                                                   qrFilter: qrFilter,
                                                   qrContext: qrContext)
             else {
-                print("QR generation failed at tile (\(tx), \(ty))")
                 return
             }
 
-            // 4. Embed into blue-channel LSBs
             for my in 0..<modules {
                 for mx in 0..<modules {
                     let bit = qrMatrix[my][mx]
